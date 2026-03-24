@@ -10,7 +10,7 @@ import os
 def generate_launch_description():
     pkg_share = get_package_share_directory('mimosa')
 
-    viz_arg = DeclareLaunchArgument('viz', default_value='true')
+    viz_arg = DeclareLaunchArgument('viz', default_value='false')
 
     mimosa_node = Node(
         package='mimosa',
@@ -18,13 +18,11 @@ def generate_launch_description():
         name='mimosa_node',
         output='screen',
         parameters=[{
-            'config_path': os.path.join(pkg_share, 'config', 'parrot', 'params.yaml'),
-            'use_sim_time': True,
+            'config_path': os.path.join(pkg_share, 'config', 'parrot_odom_imu', 'params.yaml'),
         }],
         remappings=[
-            ('~/imu/manager/imu_in', '/imu/data'),
+            ('~/imu/manager/imu_in', '/vectornav_driver_node/imu/data'),
             ('~/odometry/manager/odometry_in', '/odometry'),
-            ('~/dvl/manager/dvl_in', '/dvl/data'),
         ],
     )
 

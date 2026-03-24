@@ -166,7 +166,12 @@ protected:
 
   inline bool validateTimestamp(const ri::ConstSharedPtr<MsgT> & msg)
   {
-    header_ts_ = ri::stamp_to_seconds(msg->header.stamp);
+    if constexpr (std::is_same_v<MsgT, ri::NortekBottomTrack>) {
+      // Nortek BottomTrack uses system_timestamp instead of header.stamp
+      header_ts_ = ri::stamp_to_seconds(msg->system_timestamp);
+    } else {
+      header_ts_ = ri::stamp_to_seconds(msg->header.stamp);
+    }
 
     if (header_ts_ <= prev_ts_) {
       logger_->error(

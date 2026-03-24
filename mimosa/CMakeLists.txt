@@ -27,6 +27,8 @@ set(COMMON_ROS_DEPS
     std_msgs
     tf2_ros
     visualization_msgs
+    waterlinked_a50_ros_driver
+    interfaces
 )
 
 # ROS-specific configuration
@@ -60,6 +62,7 @@ else()
   find_package(ament_cmake REQUIRED)
   find_package(ament_cmake_ros REQUIRED)
   find_package(rclcpp REQUIRED)
+  find_package(rclcpp_action REQUIRED)
   find_package(rosbag2_cpp REQUIRED)
 
   foreach(DEP ${COMMON_ROS_DEPS})
@@ -68,11 +71,12 @@ else()
 
   set(ROS2_DEPENDENCIES
       rclcpp
+      rclcpp_action
       rosbag2_cpp
       ${COMMON_ROS_DEPS}
   )
   set(ROS_INCLUDE_DIRS "")
-  set(ROS_LIBRARIES "")
+  set(ROS_LIBRARIES rclcpp::rclcpp rclcpp_action::rclcpp_action)
   set(ARCHIVE_DESTINATION lib)
   set(LIBRARY_DESTINATION lib)
   set(RUNTIME_DESTINATION lib/${PROJECT_NAME})
@@ -115,6 +119,7 @@ set(SRC_CPP_FOLDERS
     lidar
     radar
     odometry
+    DVL
 )
 set(SOURCES)
 foreach(FOLDER ${SRC_CPP_FOLDERS})

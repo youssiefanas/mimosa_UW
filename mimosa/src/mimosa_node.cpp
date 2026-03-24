@@ -9,6 +9,7 @@
 #include "mimosa/imu/manager.hpp"
 
 // Exteroceptive sensor managers
+#include "mimosa/DVL/manager.hpp"
 #include "mimosa/lidar/manager.hpp"
 #include "mimosa/odometry/manager.hpp"
 #include "mimosa/radar/manager.hpp"
@@ -54,6 +55,7 @@ int main(int argc, char ** argv)
   mimosa::lidar::Manager lidar_manager(config_path, nh, imu_manager, graph_manager);
   mimosa::radar::Manager radar_manager(config_path, nh, imu_manager, graph_manager);
   mimosa::odometry::Manager odometry_manager(config_path, nh, imu_manager, graph_manager);
+  mimosa::dvl::Manager dvl_manager(config_path, nh, imu_manager, graph_manager);
 
   ros::waitForShutdown();
   imu_thread.join();
@@ -78,6 +80,7 @@ int main(int argc, char ** argv)
   mimosa::lidar::Manager lidar_manager(config_path, nh, imu_manager, graph_manager);
   mimosa::radar::Manager radar_manager(config_path, nh, imu_manager, graph_manager);
   mimosa::odometry::Manager odometry_manager(config_path, nh, imu_manager, graph_manager);
+  mimosa::dvl::Manager dvl_manager(config_path, nh, imu_manager, graph_manager);
 
   // Use a multi-threaded executor so callbacks on different topics run in parallel,
   // and the IMU callback group gets its own thread

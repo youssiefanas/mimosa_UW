@@ -19,6 +19,8 @@
 #include <mimosa_msgs/LidarManagerDebug.h>
 #include <mimosa_msgs/LidarPhotometricDebug.h>
 #include <mimosa_msgs/RadarManagerDebug.h>
+#include <waterlinked_a50_ros_driver/DVL.h>
+#include <interfaces/BottomTrack.h>
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <ros/ros.h>
@@ -48,6 +50,8 @@
 #include <mimosa_msgs/msg/lidar_manager_debug.hpp>
 #include <mimosa_msgs/msg/lidar_photometric_debug.hpp>
 #include <mimosa_msgs/msg/radar_manager_debug.hpp>
+#include <waterlinked_a50_ros_driver/msg/dvl.hpp>
+#include <interfaces/msg/bottom_track.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -104,6 +108,8 @@ using MimosaMsgsGraphManagerDebug = mimosa_msgs::GraphManagerDebug;
 using MimosaMsgsLidarPhotometricDebug = mimosa_msgs::LidarPhotometricDebug;
 using MimosaMsgsLidarGeometricDebug = mimosa_msgs::LidarGeometricDebug;
 using MimosaMsgsLidarManagerDebug = mimosa_msgs::LidarManagerDebug;
+using WaterlinkedDVL = waterlinked_a50_ros_driver::DVL;
+using NortekBottomTrack = interfaces::BottomTrack;
 
 // Ptr and ConstPtr were deprecated in ROS2. The naming is kept wrt to ROS2 but the
 // using declarations here allow the same code to compile in both ROS1 and ROS2.
@@ -215,6 +221,8 @@ using MimosaMsgsGraphManagerDebug = mimosa_msgs::msg::GraphManagerDebug;
 using MimosaMsgsLidarPhotometricDebug = mimosa_msgs::msg::LidarPhotometricDebug;
 using MimosaMsgsLidarGeometricDebug = mimosa_msgs::msg::LidarGeometricDebug;
 using MimosaMsgsLidarManagerDebug = mimosa_msgs::msg::LidarManagerDebug;
+using WaterlinkedDVL = waterlinked_a50_ros_driver::msg::DVL;
+using NortekBottomTrack = interfaces::msg::BottomTrack;
 
 // Ptr and ConstPtr were deprecated in ROS2. The naming is kept wrt to ROS2 but the
 // using declarations here allow the same code to compile in both ROS1 and ROS2.

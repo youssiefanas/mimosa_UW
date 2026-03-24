@@ -9,6 +9,7 @@
 #include "mimosa/imu/manager.hpp"
 
 // Exteroceptive sensor managers
+#include "mimosa/DVL/manager.hpp"
 #include "mimosa/lidar/manager.hpp"
 #include "mimosa/odometry/manager.hpp"
 #include "mimosa/radar/manager.hpp"
@@ -80,6 +81,7 @@ int main(int argc, char ** argv)
   auto graph_manager = std::make_shared<mimosa::graph::Manager>(config_path, nh, imu_manager);
 
   // Exteroceptive sensor managers
+  mimosa::dvl::Manager dvl_manager(config_path, nh, imu_manager, graph_manager);
   mimosa::lidar::Manager lidar_manager(config_path, nh, imu_manager, graph_manager);
   mimosa::radar::Manager radar_manager(config_path, nh, imu_manager, graph_manager);
   mimosa::odometry::Manager odometry_manager(config_path, nh, imu_manager, graph_manager);
@@ -154,6 +156,8 @@ int main(int argc, char ** argv)
   std::cout << "s_offset: " << s_offset << std::endl;
 
   std::queue<mimosa::ri::ConstSharedPtr<mimosa::ri::SensorMsgsPointCloud2>> lidar_msg_queue;
+  std::queue<mimosa::ri::ConstSharedPtr<mimosa::ri::WaterlinkedDVL>> dvl_wl_msg_queue;
+  std::queue<mimosa::ri::ConstSharedPtr<mimosa::ri::NortekBottomTrack>> dvl_nt_msg_queue;
 
   // Print out the bag_paths
   std::cout << "Opening these bags:" << std::endl;
@@ -162,11 +166,12 @@ int main(int argc, char ** argv)
   }
 
   std::string imu_topic = imu_manager->getSubscribedTopic();
+  std::string dvl_topic = dvl_manager.getSubscribedTopic();
   std::string lidar_topic = lidar_manager.getSubscribedTopic();
   std::string radar_topic = radar_manager.getSubscribedTopic();
   std::string odometry_topic = odometry_manager.getSubscribedTopic();
 
-  std::vector<std::string> topics = {imu_topic, lidar_topic, radar_topic, odometry_topic};
+  std::vector<std::string> topics = {imu_topic, dvl_topic, lidar_topic, radar_topic, odometry_topic};
 
   std::cout << "Topics: " << std::endl;
   for (const auto & topic : topics) {
@@ -258,6 +263,25 @@ int main(int argc, char ** argv)
               lidar_msg_queue.pop();
             }
           }
+
+          // Process queued DVL messages once IMU data covers their timestamps
+          while (!dvl_wl_msg_queue.empty()) {
+            dvl_manager.callbackWaterlinked(dvl_wl_msg_queue.front());
+            dvl_wl_msg_queue.pop();
+          }
+          while (!dvl_nt_msg_queue.empty()) {
+            dvl_manager.callbackNortek(dvl_nt_msg_queue.front());
+            dvl_nt_msg_queue.pop();
+          }
+        }
+      } else if (m.getTopic() == dvl_topic) {
+        // Queue DVL messages — process after next IMU to ensure buffer coverage
+        if (dvl_manager.getType() == mimosa::dvl::DVLType::Waterlinked) {
+          auto msg = m.instantiate<waterlinked_a50_ros_driver::DVL>();
+          if (msg != nullptr) dvl_wl_msg_queue.push(msg);
+        } else {
+          auto msg = m.instantiate<interfaces::BottomTrack>();
+          if (msg != nullptr) dvl_nt_msg_queue.push(msg);
         }
       } else if (m.getTopic() == radar_topic) {
         sensor_msgs::PointCloud2::ConstPtr msg = m.instantiate<sensor_msgs::PointCloud2>();
@@ -362,6 +386,29 @@ int main(int argc, char ** argv)
             lidar_manager.callback(lidar_msg_queue.front());
             lidar_msg_queue.pop();
           }
+        }
+
+        // Process queued DVL messages once IMU data covers their timestamps
+        while (!dvl_wl_msg_queue.empty()) {
+          dvl_manager.callbackWaterlinked(dvl_wl_msg_queue.front());
+          dvl_wl_msg_queue.pop();
+        }
+        while (!dvl_nt_msg_queue.empty()) {
+          dvl_manager.callbackNortek(dvl_nt_msg_queue.front());
+          dvl_nt_msg_queue.pop();
+        }
+      } else if (bag_msg->topic_name == dvl_topic) {
+        // Queue DVL messages — process after next IMU to ensure buffer coverage
+        if (dvl_manager.getType() == mimosa::dvl::DVLType::Waterlinked) {
+          auto msg = std::make_shared<mimosa::ri::WaterlinkedDVL>();
+          rclcpp::Serialization<mimosa::ri::WaterlinkedDVL> serializer;
+          serializer.deserialize_message(&serialized_msg, msg.get());
+          dvl_wl_msg_queue.push(msg);
+        } else {
+          auto msg = std::make_shared<mimosa::ri::NortekBottomTrack>();
+          rclcpp::Serialization<mimosa::ri::NortekBottomTrack> serializer;
+          serializer.deserialize_message(&serialized_msg, msg.get());
+          dvl_nt_msg_queue.push(msg);
         }
       } else if (bag_msg->topic_name == radar_topic) {
         auto msg = std::make_shared<mimosa::ri::SensorMsgsPointCloud2>();

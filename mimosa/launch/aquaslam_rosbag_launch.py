@@ -10,16 +10,20 @@ import os
 def generate_launch_description():
     pkg_share = get_package_share_directory('mimosa')
 
-    viz_arg = DeclareLaunchArgument('viz', default_value='true')
+    bag_name_arg = DeclareLaunchArgument('bag_name')
+    s_arg = DeclareLaunchArgument('s', default_value='0.0')
+    viz_arg = DeclareLaunchArgument('viz', default_value='false')
 
     mimosa_node = Node(
         package='mimosa',
-        executable='mimosa_node',
+        executable='mimosa_rosbag',
         name='mimosa_node',
         output='screen',
         parameters=[{
             'config_path': os.path.join(pkg_share, 'config', 'parrot', 'params.yaml'),
-            'use_sim_time': True,
+            'bag_name': LaunchConfiguration('bag_name'),
+            's': LaunchConfiguration('s'),
+            'lidar_collection_delay': 0.0,
         }],
         remappings=[
             ('~/imu/manager/imu_in', '/imu/data'),
@@ -37,6 +41,8 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        bag_name_arg,
+        s_arg,
         viz_arg,
         mimosa_node,
         rviz_node,
