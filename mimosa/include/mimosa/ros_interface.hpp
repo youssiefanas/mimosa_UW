@@ -56,6 +56,7 @@
 #include <nav_msgs/msg/path.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rosgraph_msgs/msg/clock.hpp>
+#include <sensor_msgs/msg/fluid_pressure.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
@@ -223,6 +224,7 @@ using MimosaMsgsLidarGeometricDebug = mimosa_msgs::msg::LidarGeometricDebug;
 using MimosaMsgsLidarManagerDebug = mimosa_msgs::msg::LidarManagerDebug;
 using WaterlinkedDVL = waterlinked_a50_ros_driver::msg::DVL;
 using NortekBottomTrack = interfaces::msg::BottomTrack;
+using SensorMsgsFluidPressure = sensor_msgs::msg::FluidPressure;
 
 // Ptr and ConstPtr were deprecated in ROS2. The naming is kept wrt to ROS2 but the
 // using declarations here allow the same code to compile in both ROS1 and ROS2.

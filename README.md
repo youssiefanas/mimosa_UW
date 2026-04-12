@@ -4,7 +4,7 @@
 ![ROS Version](https://img.shields.io/badge/ROS-Noetic-blue)
 ![ROS Version](https://img.shields.io/badge/ROS2-Jazzy-blue)
 
-This package implements a tightly-coupled multi-modal fusion framework. It currently supports fusing LiDAR (Geometric, Photometric), Radar, any Odometry and IMU to provide robust state estimation in challenging environments. The framework is designed to be modular and easily extensible to add new sensors.
+This package implements a tightly-coupled multi-modal fusion framework. It currently supports fusing LiDAR (Geometric, Photometric), Radar, any Odometry, DVL, pressure/depth, and IMU to provide robust state estimation in challenging environments. The framework is designed to be modular and easily extensible to add new sensors.
 
 ## Working Description
 
@@ -28,6 +28,41 @@ The radar factor provides a single factor per pointcloud that utilizes the radia
 ### Odometry Factor
 
 Consecutive odometry measurements (e.g., from a VIO system) are used to create relative pose factors (Between factors) between the corresponding states in the graph.
+
+### DVL Factor
+
+The DVL factor constrains the body-frame linear velocity using a bottom-track measurement from a Doppler Velocity Log. It is a 3-key factor tying `X(k)` (pose), `V(k)` (world-frame velocity) and `B(k)` (IMU bias, for gyroscope compensation of the lever arm), and models the sensor-frame measurement with full lever-arm compensation:
+
+```
+v_S = R_S_B * ( R_B_W * v_W + (omega_B - b_g) x t_B_S )
+```
+
+where `t_B_S` is the lever arm from the body origin to the DVL transducer expressed in the body frame, `omega_B` is the body-frame angular velocity sampled from the IMU buffer around the DVL timestamp, and `b_g` is the estimated gyroscope bias. The factor analytically provides the Jacobians w.r.t. all three keys. Per-axis noise sigmas are derived from the DVL's reported figure-of-merit (`fom_scale * fom`), and measurements with FOM above `max_fom` or speed above `max_velocity` are rejected.
+
+Two DVL drivers are supported via `dvl.manager.dvl_type` in the config: `0 = Waterlinked A50` (shared-FOM) and `1 = Nortek BottomTrack` (per-axis FOM, uses the message's `system_timestamp` as the stamp since it has no `std_msgs/Header`).
+
+If `dvl.manager.use_to_init` is `true`, the manager also provides a body-frame velocity hint when declaring the first measurement. The graph manager rotates this hint to world via the IMU-estimated attitude and warm-starts `V(0)` so the solver does not have to pull the state away from a zero initial guess against a tight velocity prior. Widening `graph.manager.smoother.initial_velocity_sigma` lets the DVL measurement dominate the initial velocity estimate.
+
+### Depth Factor
+
+The depth factor is a unary prior on `X(k)` that constrains the world-frame z-component of the sensor position using a `sensor_msgs/FluidPressure` reading. It follows the measurement model:
+
+```
+residual = (T_W_B * t_B_S).z() - measured_z
+```
+
+where `t_B_S` is the lever arm of the pressure sensor in the body frame (taken from `depth.T_B_S`), and the Jacobian w.r.t. the pose tangent space is the z-row of the 3x6 Jacobian returned by `Pose3::transformFrom`. Only the z-component of `T_W_B` is observed — roll, pitch, yaw and the xy-position are unaffected by this factor.
+
+The manager converts raw pressure to a signed z via the hydrostatic equation:
+
+```
+depth_below_surface = (fluid_pressure - surface_pressure) / (fluid_density * g)
+raw_measured_z      = -depth_below_surface        # world z is up
+```
+
+Because mimosa initializes with `T_W_B = (R_W_B, 0)` — i.e. the world origin is wherever the robot started, not the water surface — the manager captures an offset from the first valid pressure message and subtracts it on every subsequent measurement. The first depth factor therefore has zero residual against the init pose, and all later factors measure delta-z from the start of the run. The offset is logged at `info` level when captured.
+
+`depth.manager.use_to_init` should be left `false`: the whole point of the offset is to anchor to whatever pose the init already picked, so having depth trigger init would be circular. The relevant config fields are `sigma_depth_m`, `fluid_density` (use `1025.0` for seawater, `1000.0` for freshwater), `surface_pressure` (Pa), and `gravity_magnitude`.
 
 ## Setup
 

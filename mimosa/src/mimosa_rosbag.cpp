@@ -10,10 +10,10 @@
 
 // Exteroceptive sensor managers
 #include "mimosa/DVL/manager.hpp"
+#include "mimosa/depth/manager.hpp"
 #include "mimosa/lidar/manager.hpp"
 #include "mimosa/odometry/manager.hpp"
 #include "mimosa/radar/manager.hpp"
-
 // ROS
 #if DETECTED_ROS_VERSION == 1
 #include <rosbag/bag.h>
@@ -85,7 +85,7 @@ int main(int argc, char ** argv)
   mimosa::lidar::Manager lidar_manager(config_path, nh, imu_manager, graph_manager);
   mimosa::radar::Manager radar_manager(config_path, nh, imu_manager, graph_manager);
   mimosa::odometry::Manager odometry_manager(config_path, nh, imu_manager, graph_manager);
-
+  mimosa::depth::Manager depth_manager(config_path, nh, imu_manager, graph_manager);
   // Read the bag name from parameter server
   std::string bag_name;
 #if DETECTED_ROS_VERSION == 1
@@ -170,8 +170,10 @@ int main(int argc, char ** argv)
   std::string lidar_topic = lidar_manager.getSubscribedTopic();
   std::string radar_topic = radar_manager.getSubscribedTopic();
   std::string odometry_topic = odometry_manager.getSubscribedTopic();
+  std::string depth_topic = depth_manager.getSubscribedTopic();
 
-  std::vector<std::string> topics = {imu_topic, dvl_topic, lidar_topic, radar_topic, odometry_topic};
+  std::vector<std::string> topics = {imu_topic,   dvl_topic,      lidar_topic,
+                                     radar_topic, odometry_topic, depth_topic};
 
   std::cout << "Topics: " << std::endl;
   for (const auto & topic : topics) {
@@ -420,6 +422,11 @@ int main(int argc, char ** argv)
         rclcpp::Serialization<mimosa::ri::NavMsgsOdometry> serializer;
         serializer.deserialize_message(&serialized_msg, msg.get());
         odometry_manager.callback(msg);
+      } else if (bag_msg->topic_name == depth_topic) {
+        auto msg = std::make_shared<mimosa::ri::SensorMsgsFluidPressure>();
+        rclcpp::Serialization<mimosa::ri::SensorMsgsFluidPressure> serializer;
+        serializer.deserialize_message(&serialized_msg, msg.get());
+        depth_manager.callback(msg);
       }
     }
 
