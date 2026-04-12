@@ -14,6 +14,8 @@
 // GTSAM
 #include <gtsam_unstable/nonlinear/IncrementalFixedLagSmoother.h>
 
+#include <optional>
+
 #define SMOOTHER_IFL true
 namespace mimosa
 {
@@ -117,9 +119,12 @@ public:
     const std::string & config_path, ri::NodeHandle & nh,
     mimosa::imu::Manager::SharedPtr imu_manager);
   // The one step factors are for things that do not require the two step process. Eg. Radar
+  // init_velocity_hint_B: optional body-frame velocity estimate used only during
+  // initialization to warm-start V(0). Rotated to world via the estimated R_W_B.
   DeclarationResult declare(
     const double ts, gtsam::Key & key, const bool use_to_init,
-    const gtsam::NonlinearFactorGraph & one_step_factors = {});
+    const gtsam::NonlinearFactorGraph & one_step_factors = {},
+    const std::optional<V3D> & init_velocity_hint_B = std::nullopt);
   void getCurrentState(State & state);
   void getStateUpto(const double ts, State & state);
   void define(
