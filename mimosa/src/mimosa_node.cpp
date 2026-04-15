@@ -83,6 +83,8 @@ int main(int argc, char ** argv)
   mimosa::radar::Manager radar_manager(config_path, nh, imu_manager, graph_manager);
   mimosa::odometry::Manager odometry_manager(config_path, nh, imu_manager, graph_manager);
   mimosa::dvl::Manager dvl_manager(config_path, nh, imu_manager, graph_manager);
+  mimosa::depth::Manager depth_manager(config_path, nh, imu_manager, graph_manager);
+
 
   // Use a multi-threaded executor so callbacks on different topics run in parallel,
   // and the IMU callback group gets its own thread

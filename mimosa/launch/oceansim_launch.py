@@ -44,18 +44,18 @@ def generate_launch_description():
     # ── 1. image_transport republish: CompressedImage → raw Image ────────────
     # OceanSim publishes CompressedImage directly (not through image_transport),
     # so we remap in/compressed to the actual topic name.
-    # image_republisher = Node(
-    #     package='image_transport',
-    #     executable='republish',
-    #     name='image_republisher',
-    #     arguments=['compressed', 'raw'],
-    #     remappings=[
-    #         ('in/compressed', '/oceansim/robot/downcamleft'),
-    #         ('out', '/oceansim/camera/image_raw'),
-    #     ],
-    #     parameters=[{'use_sim_time': True}],
-    #     output='screen',
-    # )
+    image_republisher = Node(
+        package='image_transport',
+        executable='republish',
+        name='image_republisher',
+        arguments=['compressed', 'raw'],
+        remappings=[
+            ('in/compressed', '/oceansim/robot/downcamleft'),
+            ('out', '/oceansim/camera/image_raw'),
+        ],
+        parameters=[{'use_sim_time': True}],
+        output='screen',
+    )
 
     # ── 2. DVL bridge: OceanSim TwistStamped → waterlinked DVL msg ───────────
     dvl_bridge = Node(
@@ -75,18 +75,18 @@ def generate_launch_description():
     dv_slam_config   = os.path.join(dv_slam_pkg, 'config', 'dv_slam.yaml')
     oceansim_dataset = os.path.join(dv_slam_pkg, 'config', 'datasets', 'oceansim.yaml')
 
-    # vo_node = Node(
-    #     package='dv_slam',
-    #     executable='vo_node',
-    #     name='visual_odom_node',
-    #     output='screen',
-    #     parameters=[
-    #         dv_slam_config,
-    #         oceansim_dataset,
-    #         {'use_sim_time': True},
-    #     ],
-    #     # image_topic is set inside oceansim.yaml (/oceansim/camera/image_raw)
-    # )
+    vo_node = Node(
+        package='dv_slam',
+        executable='vo_node',
+        name='visual_odom_node',
+        output='screen',
+        parameters=[
+            dv_slam_config,
+            oceansim_dataset,
+            {'use_sim_time': True},
+        ],
+        # image_topic is set inside oceansim.yaml (/oceansim/camera/image_raw)
+    )
 
     # ── 4. mimosa state estimator ─────────────────────────────────────────────
     mimosa_params = os.path.join(mimosa_pkg, 'config', 'oceansim', 'params.yaml')
@@ -106,7 +106,7 @@ def generate_launch_description():
             # DVL: converted by oceansim_dvl_bridge
             ('~/dvl/manager/dvl_in',       '/dvl/data'),
             # Pressure → depth prior
-            ('~/depth/manager/depth_in',   '/pressure/data'),
+            ('~/depth/manager/depth_in',   '/barometer/pressure'),
             # Odometry: published by DVP_Underwater_SK vo_node
             ('~/odometry/manager/odometry_in', '/odometry'),
         ],

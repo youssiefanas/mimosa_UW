@@ -6,7 +6,7 @@ body_frame: mimosa_body
 imu:
   manager:
     log_level: warn
-    ts_offset: 0.1*1e3
+    ts_offset: 0.0
     max_buffer_duration: 150
     pose_init_wait_secs: 1
     interpolation_max_ts_diff: 1
@@ -18,7 +18,7 @@ imu:
     acc_bias_random_walk: 1.0e-4     # [ m / s^3 / sqrt(Hz) ]
     gyro_noise_density: 1.0e-3       # [ rad / s / sqrt(Hz) ]
     gyro_bias_random_walk: 1.0e-5    # [ rad / s^2 / sqrt(Hz) ]
-    integration_sigma: 0
+    integration_sigma: 1.0e-4
     use_2nd_order_coriolis: false
     use_estimated_gravity: false
     gravity_magnitude: 9.82145996
@@ -40,14 +40,14 @@ graph:
       relinearize_skip: 1
       enable_relinearization: true
       evaluate_nonlinear_error: false
-      factorization: CHOLESKY
+      factorization: QR
       cache_linearized_factors: true
       enable_detailed_results: false
       enable_partial_relinearization_check: true
-      initial_position_sigma: 1.0e-6
-      initial_rotation_yaw_sigma_deg: 1.0e-6
-      initial_rotation_pitch_roll_sigma_deg: 1.0e-6
-      initial_velocity_sigma: 1.0e-6
+      initial_position_sigma: 0.1
+      initial_rotation_yaw_sigma_deg: 5.0
+      initial_rotation_pitch_roll_sigma_deg: 1.0
+      initial_velocity_sigma: 0.1
       initial_bias_acc_sigma: 1.0e-1
       initial_bias_gyro_sigma: 1.0e-5
       initial_gravity_sigma: 5.0e-2
@@ -169,8 +169,8 @@ odometry:
     log_level: info
     enabled: true
     use_to_init: true
-    initial_skip: 2
-    ts_offset: 0.1*1e3
+    initial_skip: 0
+    ts_offset: 0.0
     d_opt_thresh: 1
     sigma_rot_deg: 0.5
     sigma_trans_m: 0.05   # monocular VO has higher uncertainty than wheel odom
@@ -182,8 +182,8 @@ dvl:
   T_B_S: [0.0, 0.0, -0.1, 0.0, 0.0, 0.0, 1.0]
   manager:
     log_level: info
-    initial_skip: 800
-    enabled: true
+    initial_skip: 10
+    enabled: false
     use_to_init: false
     dvl_type: 0        # 0 = Waterlinked A50
     fom_scale: 1.0

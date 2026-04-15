@@ -684,7 +684,9 @@ void Manager::initializeGraph(
   graph.emplace_shared<gtsam::PriorFactor<gtsam::Unit3>>(
     G(0), n_gravity_direction, prior_noise_gravity);
 
-  graph.add(additional_factors);
+  gtsam::NonlinearFactorGraph rekeyed_additional;
+  rekeyOneStepFactors(additional_factors, key, rekeyed_additional);
+  graph.add(rekeyed_additional);
 
   gtsam::Values initial_values;
   initial_values.insert(X(key), T_W_B);
