@@ -8,7 +8,7 @@ imu:
     log_level: warn
     ts_offset: 0.0
     max_buffer_duration: 150
-    pose_init_wait_secs: 1
+    pose_init_wait_secs: 2
     interpolation_max_ts_diff: 1
     extrapolation_max_ts_diff: 0.15
     acc_scale_factor: 1
