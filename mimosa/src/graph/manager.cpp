@@ -141,7 +141,8 @@ void Manager::rekeyOneStepFactors(
 
 Manager::DeclarationResult Manager::declare(
   const double ts, gtsam::Key & key, const bool use_to_init,
-  const gtsam::NonlinearFactorGraph & one_step_factors)
+  const gtsam::NonlinearFactorGraph & one_step_factors,
+  const std::optional<V3D> & init_velocity_hint_B)
 {
   std::lock_guard<std::mutex> lock(graph_mutex_);
 
@@ -172,9 +173,16 @@ Manager::DeclarationResult Manager::declare(
     const auto imu_bias = gtsam::imuBias::ConstantBias(estimated_acc_bias, estimated_gyro_bias);
     const gtsam::Pose3 T_W_Bk = gtsam::Pose3(R_W_B, V3D::Zero());
 
-    // * Right now, the initialization is always without the rekeyed factors. Since the only other modality is the radar,
-    // * which would only help in the case of non stationary initialization. Non-stationary initialization is not supported yet.
-    initializeGraph(ts, key, T_W_Bk, V3D::Zero(), imu_bias);
+    // Warm-start V(0) from the declaring sensor if it provided a body-frame hint
+    // (e.g. DVL after lever-arm compensation). Otherwise assume stationary init.
+    const V3D init_vel_W =
+      init_velocity_hint_B.has_value() ? R_W_B * init_velocity_hint_B.value() : V3D::Zero();
+
+    // Pass the declaring sensor's factors into the init graph so modalities like DVL
+    // that constrain V(0) can contribute to (non-stationary) initialization. The
+    // velocity prior (from initial_velocity_sigma) still applies — widen it in config
+    // if you want the sensor factor to dominate the initial velocity estimate.
+    initializeGraph(ts, key, T_W_Bk, init_vel_W, imu_bias, one_step_factors);
     initialized_ = true;
     logger_->info("Graph initialized at ts: {} key: {}", ts, gdkf(key));
     return DeclarationResult::SUCCESS_INITIALIZED;
@@ -483,6 +491,9 @@ Manager::DeclarationResult Manager::declare(
   optimized_values_ = smoother_->calculateEstimate();
   logger_->trace("Calculated optimized values with {} values", optimized_values_.size());
 
+  // TODO: Covariance tracking — compute marginal covariances for each sensor factor
+  // and the overall system (pose, velocity, bias) after each optimization step.
+
   // Update the current state
   updateStateToKeyTs(key, ts);
 
@@ -664,6 +675,8 @@ void Manager::initializeGraph(
     gtsam::Unit3(imu_manager_->getPreintegratorParams()->getGravity());
 
   gtsam::NonlinearFactorGraph graph;
+  // TODO: Have the prior coming from the pressure sensor.
+  // TODO: Add pressure sensor factor.
   graph.emplace_shared<gtsam::PriorFactor<gtsam::Pose3>>(X(key), T_W_B, prior_noise_pose);
   graph.emplace_shared<gtsam::PriorFactor<V3D>>(V(key), vel, prior_noise_velocity);
   graph.emplace_shared<gtsam::PriorFactor<gtsam::imuBias::ConstantBias>>(

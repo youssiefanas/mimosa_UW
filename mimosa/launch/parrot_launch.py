@@ -10,7 +10,7 @@ import os
 def generate_launch_description():
     pkg_share = get_package_share_directory('mimosa')
 
-    viz_arg = DeclareLaunchArgument('viz', default_value='true')
+    viz_arg = DeclareLaunchArgument('viz', default_value='false')
 
     mimosa_node = Node(
         package='mimosa',

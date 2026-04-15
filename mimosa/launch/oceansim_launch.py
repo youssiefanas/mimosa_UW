@@ -105,6 +105,8 @@ def generate_launch_description():
             ('~/imu/manager/imu_in',       '/oceansim/robot/imu'),
             # DVL: converted by oceansim_dvl_bridge
             ('~/dvl/manager/dvl_in',       '/dvl/data'),
+            # Pressure → depth prior
+            ('~/depth/manager/depth_in',   '/pressure/data'),
             # Odometry: published by DVP_Underwater_SK vo_node
             ('~/odometry/manager/odometry_in', '/odometry'),
         ],

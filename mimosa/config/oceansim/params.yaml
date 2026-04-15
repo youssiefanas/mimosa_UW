@@ -189,3 +189,19 @@ dvl:
     fom_scale: 1.0
     max_fom: 0.5
     max_velocity: 10.0
+
+# Pressure-derived depth prior
+depth:
+  sensor_frame: mimosa_depth
+  # Pressure sensor lever arm in body frame; adjust to your mounting.
+  T_B_S: [0.0, 0.0, -0.05, 0.0, 0.0, 0.0, 1.0]
+  manager:
+    log_level: info
+    enabled: true
+    use_to_init: false          # offset is captured from first msg; do not init on this
+    initial_skip: 0
+    ts_offset: 0
+    sigma_depth_m: 0.05         # measurement noise sigma [m]
+    fluid_density: 1025.0       # seawater; use 1000.0 for freshwater
+    surface_pressure: 101325.0  # atmospheric reference [Pa]
+    gravity_magnitude: 9.80665  # [m/s^2]

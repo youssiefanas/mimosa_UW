@@ -120,6 +120,7 @@ set(SRC_CPP_FOLDERS
     radar
     odometry
     DVL
+    depth
 )
 set(SOURCES)
 foreach(FOLDER ${SRC_CPP_FOLDERS})

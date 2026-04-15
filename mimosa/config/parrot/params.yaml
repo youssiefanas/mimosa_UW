@@ -176,8 +176,10 @@ dvl:
   T_B_S: [-0.075809, 0.140483, -0.091002, -0.0025025, 0.7148045, 0.6992316, 0.0111149] # x, y, z, qx, qy, qz, qw
   manager:
     log_level: info
-    enabled: true
-    use_to_init: false
+    enabled: false
+    use_to_init: true
+    initial_skip: 20 # skip first few DVL messages to let IMU buffer populate
+    ts_offset: 0
     dvl_type: 0        # 0=Waterlinked, 1=Nortek
     fom_scale: 1.0     # sigma = fom * fom_scale
     max_fom: 0.5       # reject if FOM > this [m/s]

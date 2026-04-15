@@ -99,9 +99,18 @@ void WaterlinkedManager::processVelocity(
     vel_sensor, config_.base.T_B_S, angular_velocity_mean, X(0), V(0), B(0), noise_model);
   new_factors.add(factor);
 
+  // Body-frame velocity hint for initialization warm-start. Invert the DVL
+  // measurement model (lever-arm compensated):
+  //   v_S = R_B_S^T * (v_B + omega_B x t_B_S)
+  //   => v_B = R_B_S * v_S - omega_B x t_B_S
+  // t_B_S is already expressed in the body frame (it's the translation of T_B_S).
+  const gtsam::Rot3 & R_B_S = config_.base.T_B_S.rotation();
+  const V3D & t_B_S = config_.base.T_B_S.translation();
+  const V3D v_B_hint = R_B_S * vel_sensor - angular_velocity_mean.cross(t_B_S);
+
   logger_->debug("Declaring DVL factor (ts: {})", timestamp);
-  graph::Manager::DeclarationResult dr =
-    graph_manager_->declare(timestamp, new_key_, config_.base.use_to_init, new_factors);
+  graph::Manager::DeclarationResult dr = graph_manager_->declare(
+    timestamp, new_key_, config_.base.use_to_init, new_factors, v_B_hint);
 
   if (!handleDeclarationResult(dr)) {
     return;
@@ -184,8 +193,8 @@ void NortekManager::processVelocity(
   try {
     // Query a window ending slightly before the DVL timestamp to ensure IMU data is available.
     // DVL timestamps are typically ~1-2ms ahead of the latest IMU sample in the buffer.
-    constexpr double kDelay = 3e-3;  // 3ms offset
-    constexpr double kEps = 1e-4;    // 0.1ms half-window
+    constexpr double kDelay = 0;    // 3e-3;  // 3ms offset
+    constexpr double kEps = 33e-3;  // 33ms half-window
     imu_manager_->getInterpolatedMeasurements(
       timestamp - kDelay - kEps, timestamp - kDelay + kEps, imu_measurements);
 
@@ -210,9 +219,18 @@ void NortekManager::processVelocity(
     vel_sensor, config_.base.T_B_S, angular_velocity_mean, X(0), V(0), B(0), noise_model);
   new_factors.add(factor);
 
+  // Body-frame velocity hint for initialization warm-start. Invert the DVL
+  // measurement model (lever-arm compensated):
+  //   v_S = R_B_S^T * (v_B + omega_B x t_B_S)
+  //   => v_B = R_B_S * v_S - omega_B x t_B_S
+  // t_B_S is already expressed in the body frame (it's the translation of T_B_S).
+  const gtsam::Rot3 & R_B_S = config_.base.T_B_S.rotation();
+  const V3D & t_B_S = config_.base.T_B_S.translation();
+  const V3D v_B_hint = R_B_S * vel_sensor - angular_velocity_mean.cross(t_B_S);
+
   logger_->debug("Declaring DVL factor (ts: {})", timestamp);
-  graph::Manager::DeclarationResult dr =
-    graph_manager_->declare(timestamp, new_key_, config_.base.use_to_init, new_factors);
+  graph::Manager::DeclarationResult dr = graph_manager_->declare(
+    timestamp, new_key_, config_.base.use_to_init, new_factors, v_B_hint);
 
   if (!handleDeclarationResult(dr)) {
     return;
