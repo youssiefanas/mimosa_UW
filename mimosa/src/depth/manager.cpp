@@ -19,6 +19,12 @@ Manager::Manager(
     config::checkValid(config::fromYamlFile<ManagerConfig>(config_path)), nh, imu_manager,
     graph_manager, "depth")
 {
+  // Register a z-hint provider so that whichever sensor drives init can pick
+  // up the latest depth reading and anchor the first pose's world-z to it.
+  graph_manager->setInitZHintProvider([this]() -> std::optional<double> {
+    std::lock_guard<std::mutex> lk(z_mutex_);
+    return latest_measured_z_;
+  });
   subscribeIfEnabled();
 }
 
@@ -34,19 +40,12 @@ void Manager::callback(const ri::ConstSharedPtr<ri::SensorMsgsFluidPressure> & m
   const double depth_below_surface =
     (msg->fluid_pressure - config_.surface_pressure) /
     (config_.fluid_density * config_.gravity_magnitude);
-  const double raw_measured_z = -depth_below_surface;
+  const double measured_z = -depth_below_surface;
 
-  // Capture an offset on the first message so the first depth factor has zero
-  // residual against the init pose (world-z = 0). After that, every factor
-  // measures delta-z relative to where the robot started.
-  if (!depth_offset_initialized_) {
-    depth_offset_ = raw_measured_z;
-    depth_offset_initialized_ = true;
-    logger_->info(
-      "Captured depth offset from first pressure message: {} m (pressure: {} Pa)",
-      depth_offset_, msg->fluid_pressure);
+  {
+    std::lock_guard<std::mutex> lk(z_mutex_);
+    latest_measured_z_ = measured_z;
   }
-  const double measured_z = raw_measured_z - depth_offset_;
 
   auto noise_model = gtsam::noiseModel::Isotropic::Sigma(1, config_.sigma_depth_m);
 
@@ -57,7 +56,7 @@ void Manager::callback(const ri::ConstSharedPtr<ri::SensorMsgsFluidPressure> & m
 
   logger_->debug("Declaring depth factor (ts: {} measured_z: {})", corrected_ts_, measured_z);
   graph::Manager::DeclarationResult dr = graph_manager_->declare(
-    corrected_ts_, new_key_, config_.base.use_to_init, new_factors);
+    corrected_ts_, new_key_, config_.base.use_to_init, new_factors, std::nullopt, measured_z);
 
   if (!handleDeclarationResult(dr)) {
     return;

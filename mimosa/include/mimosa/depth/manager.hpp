@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include <mutex>
+#include <optional>
+
 #include "mimosa/depth/factor.hpp"
 #include "mimosa/sensor_manager_base.hpp"
 
@@ -35,11 +38,12 @@ public:
   void callback(const ri::ConstSharedPtr<ri::SensorMsgsFluidPressure> & msg) override;
 
 private:
-  // Offset captured from the first valid pressure message so that the first
-  // depth factor has zero residual against the init pose (which mimosa places
-  // at world-z = 0). All subsequent factors measure delta-z from that point.
-  bool depth_offset_initialized_ = false;
-  double depth_offset_ = 0.0;
+  // Latest valid measurement (world-z, with up positive). Updated on every
+  // callback, including before the graph is initialized, so that another
+  // sensor's init call can pull it through the registered provider and anchor
+  // the first pose's z to the true depth.
+  std::mutex z_mutex_;
+  std::optional<double> latest_measured_z_;
 };
 
 }  // namespace depth

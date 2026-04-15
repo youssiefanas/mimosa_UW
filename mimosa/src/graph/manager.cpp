@@ -141,7 +141,9 @@ void Manager::rekeyOneStepFactors(
 
 Manager::DeclarationResult Manager::declare(
   const double ts, gtsam::Key & key, const bool use_to_init,
-  const gtsam::NonlinearFactorGraph & one_step_factors)
+  const gtsam::NonlinearFactorGraph & one_step_factors,
+  const std::optional<V3D> & init_velocity_hint_B,
+  const std::optional<double> & init_z_hint_W)
 {
   std::lock_guard<std::mutex> lock(graph_mutex_);
 
@@ -170,11 +172,31 @@ Manager::DeclarationResult Manager::declare(
     logger_->info("Estimated gyro bias: {}", estimated_gyro_bias.transpose());
 
     const auto imu_bias = gtsam::imuBias::ConstantBias(estimated_acc_bias, estimated_gyro_bias);
-    const gtsam::Pose3 T_W_Bk = gtsam::Pose3(R_W_B, V3D::Zero());
+
+    // Resolve an initial world-z: prefer an inline hint, then fall back to a
+    // registered provider (e.g. depth manager), then zero.
+    double init_z = 0.0;
+    if (init_z_hint_W) {
+      init_z = *init_z_hint_W;
+      logger_->info("Using inline init z-hint: {} m", init_z);
+    } else if (init_z_hint_provider_) {
+      if (auto z = init_z_hint_provider_()) {
+        init_z = *z;
+        logger_->info("Using provider init z-hint: {} m", init_z);
+      }
+    }
+    const gtsam::Pose3 T_W_Bk = gtsam::Pose3(R_W_B, V3D(0.0, 0.0, init_z));
+
+    // Warm-start V(0) from a body-frame velocity hint if provided.
+    V3D init_vel_W = V3D::Zero();
+    if (init_velocity_hint_B) {
+      init_vel_W = R_W_B * (*init_velocity_hint_B);
+      logger_->info("Using init velocity hint (W): {}", init_vel_W.transpose());
+    }
 
     // * Right now, the initialization is always without the rekeyed factors. Since the only other modality is the radar,
     // * which would only help in the case of non stationary initialization. Non-stationary initialization is not supported yet.
-    initializeGraph(ts, key, T_W_Bk, V3D::Zero(), imu_bias);
+    initializeGraph(ts, key, T_W_Bk, init_vel_W, imu_bias);
     initialized_ = true;
     logger_->info("Graph initialized at ts: {} key: {}", ts, gdkf(key));
     return DeclarationResult::SUCCESS_INITIALIZED;

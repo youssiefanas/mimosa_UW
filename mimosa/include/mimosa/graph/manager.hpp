@@ -14,6 +14,7 @@
 // GTSAM
 #include <gtsam_unstable/nonlinear/IncrementalFixedLagSmoother.h>
 
+#include <functional>
 #include <optional>
 
 #define SMOOTHER_IFL true
@@ -94,6 +95,7 @@ private:
 
   State state_;
   gtsam::Key internal_key_;
+  std::function<std::optional<double>()> init_z_hint_provider_;
 
 #if SMOOTHER_IFL
   std::unique_ptr<gtsam::IncrementalFixedLagSmoother> smoother_;
@@ -124,7 +126,16 @@ public:
   DeclarationResult declare(
     const double ts, gtsam::Key & key, const bool use_to_init,
     const gtsam::NonlinearFactorGraph & one_step_factors = {},
-    const std::optional<V3D> & init_velocity_hint_B = std::nullopt);
+    const std::optional<V3D> & init_velocity_hint_B = std::nullopt,
+    const std::optional<double> & init_z_hint_W = std::nullopt);
+  // Registered by sensors (e.g. depth) that can supply an absolute world-z at
+  // init time but cannot themselves drive initialization. Consulted only on
+  // the init call, and only if no inline hint was passed.
+  void setInitZHintProvider(std::function<std::optional<double>()> provider)
+  {
+    std::lock_guard<std::mutex> lock(graph_mutex_);
+    init_z_hint_provider_ = std::move(provider);
+  }
   void getCurrentState(State & state);
   void getStateUpto(const double ts, State & state);
   void define(
