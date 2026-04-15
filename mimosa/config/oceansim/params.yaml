@@ -6,8 +6,8 @@ body_frame: mimosa_body
 imu:
   manager:
     log_level: warn
-    ts_offset: 0
-    max_buffer_duration: 130
+    ts_offset: 0.1*1e3
+    max_buffer_duration: 150
     pose_init_wait_secs: 1
     interpolation_max_ts_diff: 1
     extrapolation_max_ts_diff: 0.15
@@ -169,8 +169,8 @@ odometry:
     log_level: info
     enabled: true
     use_to_init: true
-    initial_skip: 10
-    ts_offset: 0
+    initial_skip: 2
+    ts_offset: 0.1*1e3
     d_opt_thresh: 1
     sigma_rot_deg: 0.5
     sigma_trans_m: 0.05   # monocular VO has higher uncertainty than wheel odom
@@ -182,6 +182,7 @@ dvl:
   T_B_S: [0.0, 0.0, -0.1, 0.0, 0.0, 0.0, 1.0]
   manager:
     log_level: info
+    initial_skip: 800
     enabled: true
     use_to_init: false
     dvl_type: 0        # 0 = Waterlinked A50
