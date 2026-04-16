@@ -73,8 +73,8 @@ void WaterlinkedManager::processVelocity(
   try {
     // Query a window ending slightly before the DVL timestamp to ensure IMU data is available.
     // DVL timestamps are typically ~1-2ms ahead of the latest IMU sample in the buffer.
-    constexpr double kDelay = 0e-3;  // 3ms offset
-    constexpr double kEps = 3e-3;    // 0.1ms half-window
+    constexpr double kDelay = 0.0;   // no offset
+    constexpr double kEps = 3e-3;   // 3ms half-window
     imu_manager_->getInterpolatedMeasurements(
       timestamp - kDelay - kEps, timestamp - kDelay + kEps, imu_measurements);
 
@@ -193,8 +193,8 @@ void NortekManager::processVelocity(
   try {
     // Query a window ending slightly before the DVL timestamp to ensure IMU data is available.
     // DVL timestamps are typically ~1-2ms ahead of the latest IMU sample in the buffer.
-    constexpr double kDelay = 0;    // 3e-3;  // 3ms offset
-    constexpr double kEps = 33e-3;  // 33ms half-window
+    constexpr double kDelay = 0.0;   // no offset
+    constexpr double kEps = 3e-3;   // 3ms half-window
     imu_manager_->getInterpolatedMeasurements(
       timestamp - kDelay - kEps, timestamp - kDelay + kEps, imu_measurements);
 

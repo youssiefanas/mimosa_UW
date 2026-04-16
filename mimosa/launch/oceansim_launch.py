@@ -123,10 +123,10 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        viz_arg,
+        # viz_arg,
         # image_republisher,
         dvl_bridge,
         # vo_node,
         mimosa_node,
-        rviz_node,
+        # rviz_node,
     ])

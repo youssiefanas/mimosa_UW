@@ -26,7 +26,7 @@ imu:
 
 graph:
   manager:
-    log_level: warn
+    log_level: info
     max_measurement_latency: 0.9
     smoother:
       lag: 0.5

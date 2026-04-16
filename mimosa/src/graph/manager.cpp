@@ -131,9 +131,34 @@ void Manager::rekeyOneStepFactors(
     key_mapping[V(0)] = V(new_key);
     key_mapping[B(0)] = B(new_key);
 
+    logger_->debug(
+      "rekeyOneStepFactors: remapping {} factors — X(0)->X({}), V(0)->V({}), B(0)->B({})",
+      one_step_factors.size(), new_key, new_key, new_key);
+
     // Rekey the one step factors to the new key
-    for (const auto & f : one_step_factors) {
+    for (size_t i = 0; i < one_step_factors.size(); ++i) {
+      const auto & f = one_step_factors[i];
+
+      // Log original keys
+      if (logger_->should_log(spdlog::level::debug)) {
+        std::string orig_keys;
+        for (const auto & k : f->keys()) {
+          orig_keys += gdkf(k) + " ";
+        }
+        logger_->debug("  factor[{}] original keys: [{}] dim: {}", i, orig_keys, f->dim());
+      }
+
       auto rf = f->rekey(key_mapping);
+
+      // Log rekeyed keys
+      if (logger_->should_log(spdlog::level::debug)) {
+        std::string new_keys;
+        for (const auto & k : rf->keys()) {
+          new_keys += gdkf(k) + " ";
+        }
+        logger_->debug("  factor[{}] rekeyed  keys: [{}]", i, new_keys);
+      }
+
       rekeyed_one_step_factors.push_back(rf);
     }
   }
@@ -149,7 +174,9 @@ Manager::DeclarationResult Manager::declare(
 
   key = getNextKey();
 
-  logger_->info("Declaring for ts: {} key: {}", ts, gdkf(key));
+  logger_->info(
+    "declare() — ts: {:.6f}, provisional key: {}, use_to_init: {}, one_step_factors: {}",
+    ts, gdkf(key), use_to_init, one_step_factors.size());
 
   if (!initialized_) {
     if (!use_to_init) {
@@ -198,7 +225,8 @@ Manager::DeclarationResult Manager::declare(
     // * which would only help in the case of non stationary initialization. Non-stationary initialization is not supported yet.
     initializeGraph(ts, key, T_W_Bk, init_vel_W, imu_bias);
     initialized_ = true;
-    logger_->info("Graph initialized at ts: {} key: {}", ts, gdkf(key));
+    logger_->info(
+      "declare() result — ts: {:.6f}, final key: {}, result: SUCCESS_INITIALIZED", ts, gdkf(key));
     return DeclarationResult::SUCCESS_INITIALIZED;
   }
 
@@ -287,6 +315,9 @@ Manager::DeclarationResult Manager::declare(
         auto unused_values = gtsam::Values();
         defineNoLock(rekeyed_one_step_factors, unused_values, DeclarationResult::SUCCESS_SAME_KEY);
       }
+      logger_->info(
+        "declare() result — ts: {:.6f}, final key: {}, result: SUCCESS_SAME_KEY (out-of-order collapse)",
+        ts, gdkf(key));
       return DeclarationResult::SUCCESS_SAME_KEY;
     }
 
@@ -439,7 +470,9 @@ Manager::DeclarationResult Manager::declare(
       // Not publishing results here as it would be for the same key and ts
     }
 
-    logger_->debug("Handled out of order measurement in {} ms", sw.elapsedMs());
+    logger_->info(
+      "declare() result — ts: {:.6f}, final key: {}, result: SUCCESS_OUT_OF_ORDER ({}ms)",
+      ts, gdkf(key), sw.elapsedMs());
     return DeclarationResult::SUCCESS_OUT_OF_ORDER;
   }
 
@@ -461,6 +494,9 @@ Manager::DeclarationResult Manager::declare(
       auto unused_values = gtsam::Values();
       defineNoLock(rekeyed_one_step_factors, unused_values, DeclarationResult::SUCCESS_SAME_KEY);
     }
+    logger_->info(
+      "declare() result — ts: {:.6f}, final key: {}, result: SUCCESS_SAME_KEY (normal collapse, ts_diff: {:.6f})",
+      ts, gdkf(key), ts - state_.ts());
     return DeclarationResult::SUCCESS_SAME_KEY;
   }
 
@@ -524,6 +560,8 @@ Manager::DeclarationResult Manager::declare(
     imu_manager_->setPropagationBaseState(state_);
     publishResults();
   }
+  logger_->info(
+    "declare() result — ts: {:.6f}, final key: {}, result: SUCCESS_NORMAL", ts, gdkf(key));
   return Manager::DeclarationResult::SUCCESS_NORMAL;
 }
 
@@ -650,9 +688,23 @@ void Manager::defineNoLock(
 
 void Manager::updateStateToKeyTs(const gtsam::Key key, const double ts)
 {
-  logger_->trace(
-    "Updating state to key: {} at ts: {} previous key: {} previous ts: {}", gdkf(key), ts,
-    gdkf(state_.key()), state_.ts());
+  logger_->debug(
+    "updateStateToKeyTs — key: {}, ts: {:.6f}, prev key: {}, prev ts: {:.6f}",
+    gdkf(key), ts, gdkf(state_.key()), state_.ts());
+
+#if SMOOTHER_IFL
+  // Guard: check that the key still exists in the smoother before accessing it.
+  // The IFL smoother may have marginalized it during additional update iterations.
+  const auto & smoother_timestamps = smoother_->timestamps();
+  if (smoother_timestamps.find(X(key)) == smoother_timestamps.end()) {
+    logger_->error(
+      "updateStateToKeyTs — key {} (ts: {:.6f}) has been marginalized from the smoother! "
+      "Smoother has {} timestamps, latest state key: {}, latest state ts: {:.6f}. "
+      "Skipping state update to avoid crash.",
+      gdkf(key), ts, smoother_timestamps.size(), gdkf(state_.key()), state_.ts());
+    return;
+  }
+#endif
 
   // Update the state to be at key
   const auto p = smoother_->calculateEstimate<gtsam::Pose3>(X(key));
