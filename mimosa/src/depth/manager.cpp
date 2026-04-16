@@ -55,8 +55,13 @@ void Manager::callback(const ri::ConstSharedPtr<ri::SensorMsgsFluidPressure> & m
   new_factors.add(factor);
 
   logger_->debug("Declaring depth factor (ts: {} measured_z: {})", corrected_ts_, measured_z);
+  logger_->debug(
+    "declare() — ts: {:.6f}, key: {}, provisional key: {}, use_to_init: {}, one_step_factors: {}",
+    corrected_ts_, new_key_, gdkf(new_key_), config_.base.use_to_init, new_factors.size());
+    
   graph::Manager::DeclarationResult dr = graph_manager_->declare(
     corrected_ts_, new_key_, config_.base.use_to_init, new_factors, std::nullopt, measured_z);
+    
 
   if (!handleDeclarationResult(dr)) {
     return;

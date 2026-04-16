@@ -109,6 +109,9 @@ void WaterlinkedManager::processVelocity(
   const V3D v_B_hint = R_B_S * vel_sensor - angular_velocity_mean.cross(t_B_S);
 
   logger_->debug("Declaring DVL factor (ts: {})", timestamp);
+  logger_->debug(
+  "declare() — ts: {:.6f}, key: {}, provisional key: {}, use_to_init: {}, one_step_factors: {}",
+  corrected_ts_, new_key_, gdkf(new_key_), config_.base.use_to_init, new_factors.size());
   graph::Manager::DeclarationResult dr = graph_manager_->declare(
     timestamp, new_key_, config_.base.use_to_init, new_factors, v_B_hint);
 

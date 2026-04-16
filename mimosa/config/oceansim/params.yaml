@@ -5,7 +5,7 @@ body_frame: mimosa_body
 
 imu:
   manager:
-    log_level: warn
+    log_level: info
     ts_offset: 0.0
     max_buffer_duration: 150
     pose_init_wait_secs: 2
@@ -29,7 +29,7 @@ graph:
     log_level: info
     max_measurement_latency: 0.9
     smoother:
-      lag: 0.5
+      lag: 1.5
       wildfire_threshold: 0.001
       relinearize_threshold_translation: 5.0e-3
       relinearize_threshold_rotation: 1.75e-2
@@ -167,7 +167,7 @@ odometry:
   T_B_S: [0, 0, 0, 0, 0, 0, 1]
   manager:
     log_level: info
-    enabled: true
+    enabled: false
     use_to_init: true
     initial_skip: 0
     ts_offset: 0.0
@@ -183,8 +183,9 @@ dvl:
   manager:
     log_level: info
     initial_skip: 10
-    enabled: false
-    use_to_init: false
+    enabled: true
+    ts_offset: 0.0
+    use_to_init: true
     dvl_type: 0        # 0 = Waterlinked A50
     fom_scale: 1.0
     max_fom: 0.5

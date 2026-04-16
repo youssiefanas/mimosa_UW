@@ -174,9 +174,9 @@ Manager::DeclarationResult Manager::declare(
 
   key = getNextKey();
 
-  logger_->info(
-    "declare() — ts: {:.6f}, provisional key: {}, use_to_init: {}, one_step_factors: {}",
-    ts, gdkf(key), use_to_init, one_step_factors.size());
+  // logger_->debug(
+  //   "declare() — ts: {:.6f}, provisional key: {}, use_to_init: {}, one_step_factors: {}",
+  //   ts, gdkf(key), use_to_init, one_step_factors.size());
 
   if (!initialized_) {
     if (!use_to_init) {
@@ -315,9 +315,9 @@ Manager::DeclarationResult Manager::declare(
         auto unused_values = gtsam::Values();
         defineNoLock(rekeyed_one_step_factors, unused_values, DeclarationResult::SUCCESS_SAME_KEY);
       }
-      logger_->info(
-        "declare() result — ts: {:.6f}, final key: {}, result: SUCCESS_SAME_KEY (out-of-order collapse)",
-        ts, gdkf(key));
+      // logger_->debug(
+      //   "declare() result — ts: {:.6f}, final key: {}, result: SUCCESS_SAME_KEY (out-of-order collapse)",
+      //   ts, gdkf(key));
       return DeclarationResult::SUCCESS_SAME_KEY;
     }
 
@@ -470,9 +470,9 @@ Manager::DeclarationResult Manager::declare(
       // Not publishing results here as it would be for the same key and ts
     }
 
-    logger_->info(
-      "declare() result — ts: {:.6f}, final key: {}, result: SUCCESS_OUT_OF_ORDER ({}ms)",
-      ts, gdkf(key), sw.elapsedMs());
+    // logger_->info(
+    //   "declare() result — ts: {:.6f}, final key: {}, result: SUCCESS_OUT_OF_ORDER ({}ms)",
+    //   ts, gdkf(key), sw.elapsedMs());
     return DeclarationResult::SUCCESS_OUT_OF_ORDER;
   }
 
@@ -494,9 +494,9 @@ Manager::DeclarationResult Manager::declare(
       auto unused_values = gtsam::Values();
       defineNoLock(rekeyed_one_step_factors, unused_values, DeclarationResult::SUCCESS_SAME_KEY);
     }
-    logger_->info(
-      "declare() result — ts: {:.6f}, final key: {}, result: SUCCESS_SAME_KEY (normal collapse, ts_diff: {:.6f})",
-      ts, gdkf(key), ts - state_.ts());
+    // logger_->debug(
+    //   "declare() result — ts: {:.6f}, final key: {}, result: SUCCESS_SAME_KEY (normal collapse, ts_diff: {:.6f})",
+    //   ts, gdkf(key), ts - state_.ts());
     return DeclarationResult::SUCCESS_SAME_KEY;
   }
 
@@ -560,8 +560,8 @@ Manager::DeclarationResult Manager::declare(
     imu_manager_->setPropagationBaseState(state_);
     publishResults();
   }
-  logger_->info(
-    "declare() result — ts: {:.6f}, final key: {}, result: SUCCESS_NORMAL", ts, gdkf(key));
+  // logger_->debug(
+  //   "declare() result — ts: {:.6f}, final key: {}, result: SUCCESS_NORMAL", ts, gdkf(key));
   return Manager::DeclarationResult::SUCCESS_NORMAL;
 }
 
