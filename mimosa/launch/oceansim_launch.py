@@ -38,7 +38,7 @@ def generate_launch_description():
 
     # ── Arguments ────────────────────────────────────────────────────────────
     viz_arg = DeclareLaunchArgument(
-        'viz', default_value='false',
+        'viz', default_value='true',
         description='Launch RViz2 with mimosa visualisation')
 
     # ── 1. image_transport republish: CompressedImage → raw Image ────────────
@@ -79,7 +79,7 @@ def generate_launch_description():
         package='dv_slam',
         executable='vo_node',
         name='visual_odom_node',
-        output='screen',
+        # output='screen',
         parameters=[
             dv_slam_config,
             oceansim_dataset,
@@ -89,7 +89,7 @@ def generate_launch_description():
     )
 
     # ── 4. mimosa state estimator ─────────────────────────────────────────────
-    mimosa_params = os.path.join(mimosa_pkg, 'config', 'oceansim', 'params.yaml')
+    mimosa_params = os.path.join(mimosa_pkg, 'config', 'oceansim', 'params_qr.yaml')
 
     mimosa_node = Node(
         package='mimosa',
@@ -123,10 +123,10 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        # viz_arg,
+        viz_arg,
         # image_republisher,
         dvl_bridge,
-        # vo_node,
+        vo_node,
         mimosa_node,
-        # rviz_node,
+        rviz_node,
     ])
