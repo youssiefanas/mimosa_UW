@@ -5,7 +5,7 @@ body_frame: mimosa_body
 
 imu:
   manager:
-    log_level: info
+    log_level: debug
     ts_offset: 0.0
     max_buffer_duration: 150
     pose_init_wait_secs: 2
@@ -16,20 +16,20 @@ imu:
     # OceanSim simulated IMU — tune to match the values in imu_config.yaml inside IsaacSim
     acc_noise_density: 1.0e-2        # [ m / s^2 / sqrt(Hz) ]
     acc_bias_random_walk: 1.0e-2     # [ m / s^3 / sqrt(Hz) ]
-    gyro_noise_density: 1.0e-3       # [ rad / s / sqrt(Hz) ]
-    gyro_bias_random_walk: 1.0e-3    # [ rad / s^2 / sqrt(Hz) ]
+    gyro_noise_density: 1.6e-4       # [ rad / s / sqrt(Hz) ] — matches IsaacSim sim gyro; tight to trust IMU for rotation
+    gyro_bias_random_walk: 2.2e-5    # [ rad / s^2 / sqrt(Hz) ] — matches IsaacSim sim gyro walk
     integration_sigma: 1.0e-4
     use_2nd_order_coriolis: false
     use_estimated_gravity: false
     gravity_magnitude: 9.82145996
-    gravity_aligned_initialization: false
+    gravity_aligned_initialization: true
 
 graph:
   manager:
-    log_level: info
+    log_level: debug
     max_measurement_latency: 0.9
     smoother:
-      lag: 1.5
+      lag: 3
       wildfire_threshold: 0.001
       relinearize_threshold_translation: 5.0e-3
       relinearize_threshold_rotation: 1.75e-2
@@ -164,7 +164,7 @@ radar:
 # Visual odometry from DVP_Underwater_SK (mono, downward-looking camera)
 odometry:
   sensor_frame: mimosa_odometry
-  T_B_S: [0, 0, 0, 0, 0, 0, 1]
+  T_B_S: [0, 0, 0, 0.7071068, -0.7071068, 0, 1]
   manager:
     log_level: debug
     enabled: true
@@ -172,7 +172,7 @@ odometry:
     initial_skip: 0
     ts_offset: 0.0
     d_opt_thresh: 1
-    sigma_rot_deg: 0.5
+    sigma_rot_deg: 5.0    # loosened so IMU gyro dominates rotation; VO rotation is weakly trusted
     sigma_trans_m: 0.05   # monocular VO has higher uncertainty than wheel odom
 
 # DVL A50 via oceansim_bridge
