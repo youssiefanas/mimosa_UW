@@ -813,7 +813,11 @@ void Manager::publishResults()
     odometry.child_frame_id = config_.body_frame;
     ri::from_seconds(odometry.header.stamp, state_.ts());
     convert(state_.navState().pose(), odometry.pose.pose);
-    convert(state_.navState().velocity(), odometry.twist.twist.linear);
+    // nav_msgs/Odometry: twist.linear must be in child_frame_id (body).
+    // NavState::velocity() is in the navigation (map) frame, so rotate into body.
+    const gtsam::Vector3 v_B =
+      state_.navState().pose().rotation().unrotate(state_.navState().velocity());
+    convert(v_B, odometry.twist.twist.linear);
     pub_odometry_->publish(odometry);
   }
 
