@@ -1,0 +1,20 @@
+# QoS overrides for mimosa subscriptions when running on the real BlueROV2.
+# The BlueROV2 autopilot bridge and the Nortek Nucleus driver publish with
+# BEST_EFFORT reliability (standard SensorDataQoS), while mimosa's subscribers
+# default to RELIABLE. Overriding the reliability policy here lets the two
+# endpoints agree without touching the drivers.
+#
+# These parameter names come from rclcpp's QosOverridingOptions — they use the
+# fully resolved (post-remap) topic names.
+mimosa_node:
+  ros__parameters:
+    qos_overrides:
+      "/bluerov2/imu/data_raw":
+        subscription:
+          reliability: best_effort
+      "/nucleus_node/bottom_track_packets":
+        subscription:
+          reliability: best_effort
+      "/bluerov2/pressure":
+        subscription:
+          reliability: best_effort

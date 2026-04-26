@@ -279,6 +279,10 @@ Subscriber<MessageType> create_subscriber(
   if (cb_group) {
     options.callback_group = cb_group;
   }
+  // Allow per-topic QoS overrides via ROS 2 parameters
+  // (e.g. qos_overrides./topic.subscription.reliability: best_effort).
+  // Required for sensor drivers that publish with BEST_EFFORT reliability.
+  options.qos_overriding_options = rclcpp::QosOverridingOptions::with_default_policies();
   return node->template create_subscription<MessageType>(full_topic, qos, callback, options);
 }
 
