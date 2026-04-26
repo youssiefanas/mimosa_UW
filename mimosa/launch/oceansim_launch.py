@@ -83,9 +83,51 @@ def generate_launch_description():
         parameters=[
             dv_slam_config,
             oceansim_dataset,
-            {'use_sim_time': True},
+            {
+                'use_sim_time': True,
+                # Publish under the same fixed frame mimosa uses, so both
+                # trajectories appear in the same RViz tree.
+                'frame_id': 'mimosa_map',
+                'child_frame_id': 'vo_camera',
+                'publish_tf': True,
+            },
         ],
         # image_topic is set inside oceansim.yaml (/oceansim/camera/image_raw)
+    )
+
+    # ── 4b. Static TFs for mimosa sensor frames not auto-broadcast ───────────
+    # mimosa::dvl::Manager broadcasts mimosa_body → mimosa_dvl on its first
+    # message, but the IMU manager (no sensor_frame concept — IMU is body) and
+    # the odometry manager (currently disabled) never broadcast theirs. Publish
+    # them here so RViz shows the full sensor triad.
+    static_tf_imu = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='static_tf_mimosa_body_to_imu',
+        arguments=[
+            '--x', '0', '--y', '0', '--z', '0',
+            '--qx', '0', '--qy', '0', '--qz', '0', '--qw', '1',
+            '--frame-id', 'mimosa_body',
+            '--child-frame-id', 'mimosa_imu',
+        ],
+        parameters=[{'use_sim_time': True}],
+    )
+
+    # T_B_S for odometry from params_qr.yaml (oceansim).
+    # [x, y, z, qx, qy, qz, qw] = [0, 0, 0, 0.7071068, -0.7071068, 0, 1]
+    # Note: the qw=1 in that param is non-normalised; gtsam normalises on load.
+    # Here we use the matching normalised quaternion.
+    static_tf_odom = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='static_tf_mimosa_body_to_odometry',
+        arguments=[
+            '--x', '0', '--y', '0', '--z', '0',
+            '--qx', '0.5', '--qy', '-0.5', '--qz', '0', '--qw', '0.7071068',
+            '--frame-id', 'mimosa_body',
+            '--child-frame-id', 'mimosa_odometry',
+        ],
+        parameters=[{'use_sim_time': True}],
     )
 
     # ── 4. mimosa state estimator ─────────────────────────────────────────────
@@ -127,6 +169,8 @@ def generate_launch_description():
         # image_republisher,
         dvl_bridge,
         vo_node,
+        static_tf_imu,
+        static_tf_odom,
         mimosa_node,
         rviz_node,
     ])

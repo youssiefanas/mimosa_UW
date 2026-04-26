@@ -16,10 +16,10 @@ imu:
     # Tune for the actual BlueROV2 IMU (Pixhawk ICM-20602 / ICM-42688 class MEMS).
     # These are reasonable starting values — re-estimate via Allan variance on a
     # stationary log if you can.
-    acc_noise_density: 2.0e-3        # [ m / s^2 / sqrt(Hz) ]
-    acc_bias_random_walk: 3.0e-4     # [ m / s^3 / sqrt(Hz) ]
-    gyro_noise_density: 1.7e-4       # [ rad / s / sqrt(Hz) ]
-    gyro_bias_random_walk: 2.0e-5    # [ rad / s^2 / sqrt(Hz) ]
+    acc_noise_density: 1.5e-2       # [ m / s^2 / sqrt(Hz) ] 
+    acc_bias_random_walk: 2.0e-3     # [ m / s^3 / sqrt(Hz) ]
+    gyro_noise_density: 1.5e-3       # [ rad / s / sqrt(Hz) ]
+    gyro_bias_random_walk: 3.0e-5    # [ rad / s^2 / sqrt(Hz) ]
     integration_sigma: 1.0e-4
     use_2nd_order_coriolis: false
     use_estimated_gravity: false

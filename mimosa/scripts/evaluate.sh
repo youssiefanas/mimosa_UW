@@ -41,16 +41,31 @@ for estimate_file_name in "${estimate_file_names[@]}"; do
   # Extract the base name without extension for --save_results
   base_name="${estimate_file_name%.tum}"
 
-  results_zip="$folder_path/rpe_trans_$base_name.zip"
-  # Check if the output file already exists and skip if force_recompute is false
-  if [[ -f "$results_zip" && "$force_recompute" = false ]]; then
-    echo "[INFO] Skipping $estimate_file - results already exist at $results_zip"
-    continue
+  rpe_zip="$folder_path/rpe_trans_$base_name.zip"
+  rpe_plot="$folder_path/rpe_trans_$base_name"
+  if [[ -f "$rpe_zip" && "$force_recompute" = false ]]; then
+    echo "[INFO] Skipping RPE for $estimate_file - results already exist at $rpe_zip"
+  else
+    evo_rpe tum -r trans_part --all_pairs -a -d 10 -u m "$gt_file" "$estimate_file" --save_results "$rpe_zip" --save_plot "$rpe_plot" --no_warnings
   fi
-  result_figures="$folder_path/rpe_trans_$base_name"
 
-  evo_rpe tum -r trans_part --all_pairs -a -d 10 -u m "$gt_file" "$estimate_file" --save_results "$results_zip" --save_plot "$result_figures" --no_warnings
-
-  # evo_ape tum -r trans_part -a "$gt_file_name" "$estimate_file" --save_results "ape_trans_$base_name.zip" --no_warnings
+  ape_zip="$folder_path/ape_trans_$base_name.zip"
+  ape_plot="$folder_path/ape_trans_$base_name"
+  if [[ -f "$ape_zip" && "$force_recompute" = false ]]; then
+    echo "[INFO] Skipping ATE for $estimate_file - results already exist at $ape_zip"
+  else
+    evo_ape tum -r trans_part -a "$gt_file" "$estimate_file" --save_results "$ape_zip" --save_plot "$ape_plot" --no_warnings
+  fi
 
 done
+
+# Aggregate summary tables across all estimates
+rpe_zips=("$folder_path"/rpe_trans_*.zip)
+if [[ -e "${rpe_zips[0]}" ]]; then
+  evo_res "${rpe_zips[@]}" --save_table "$folder_path/rpe_summary.csv" --no_warnings
+fi
+
+ape_zips=("$folder_path"/ape_trans_*.zip)
+if [[ -e "${ape_zips[0]}" ]]; then
+  evo_res "${ape_zips[@]}" --save_table "$folder_path/ape_summary.csv" --no_warnings
+fi

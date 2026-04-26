@@ -2,8 +2,14 @@
 """
 Trajectory evaluation script using evo tools.
 
-This script evaluates odometry results from ROS bags against ground truth
+This script evaluates odometry results from ROS 2 bags against ground truth
 by computing RPE (Relative Pose Error) and ATE (Absolute Trajectory Error).
+
+A ROS 2 bag is a directory containing `metadata.yaml` plus one or more
+storage files (.db3 / .mcap). For each method, this script globs every
+such directory under `result_bags/<method>/`, extracts the configured
+odometry topic to TUM, and runs evo_rpe / evo_ape against the ground
+truth.
 """
 
 import subprocess
@@ -55,37 +61,40 @@ def run_command(cmd: List[str], cwd: str = None) -> bool:
         return False
 
 
-def extract_tum_from_bag(bag_path: Path, topic: str, output_tum: Path) -> bool:
-    """Extract trajectory from bag and save as TUM format."""
-    bag_dir = bag_path.parent
-    bag_name = bag_path.name
+def extract_tum_from_bag(bag_dir: Path, topic: str, output_tum: Path) -> bool:
+    """Extract trajectory from a ROS 2 bag directory and save as TUM format."""
+    parent_dir = bag_dir.parent
 
-    # Run evo_traj to extract all topics as TUM
-    cmd = ["evo_traj", "bag", bag_name, "--save_as_tum", "--all_topics"]
-    if not run_command(cmd, cwd=str(bag_dir)):
+    # Run evo_traj (ROS 2 subcommand `bag2`) to extract all topics as TUM.
+    # TUM files are written to cwd, so we run from the bag's parent.
+    cmd = ["evo_traj", "bag2", bag_dir.name, "--save_as_tum", "--all_topics"]
+    if not run_command(cmd, cwd=str(parent_dir)):
         return False
 
     # Find the generated TUM file for our topic
     expected_tum_name = topic_to_filename(topic)
-    generated_tum = bag_dir / expected_tum_name
+    generated_tum = parent_dir / expected_tum_name
 
     if not generated_tum.exists():
         print(f"  Error: Expected TUM file {generated_tum} not found")
-        # List what was generated for debugging
-        tum_files = list(bag_dir.glob("*.tum"))
+        tum_files = list(parent_dir.glob("*.tum"))
         print(f"  Generated TUM files: {[f.name for f in tum_files]}")
         return False
 
-    # Move to the desired output name
     shutil.move(str(generated_tum), str(output_tum))
     print(f"  Created: {output_tum.name}")
 
     # Clean up other generated TUM files
-    for tum_file in bag_dir.glob("*.tum"):
+    for tum_file in parent_dir.glob("*.tum"):
         if tum_file != output_tum:
             tum_file.unlink()
 
     return True
+
+
+def is_ros2_bag_dir(path: Path) -> bool:
+    """A ROS 2 bag is a directory containing a metadata.yaml file."""
+    return path.is_dir() and (path / "metadata.yaml").is_file()
 
 
 def compute_rpe(gt_tum: Path, traj_tum: Path, output_zip: Path) -> bool:
@@ -162,23 +171,23 @@ def main():
             print(f"Warning: Method directory not found: {method_dir}")
             continue
 
-        # Find all bag files in the method directory
-        bag_files = list(method_dir.glob("*.bag"))
-        if not bag_files:
-            print(f"Warning: No bag files found in {method_dir}")
+        # Find all ROS 2 bag directories in the method directory
+        bag_dirs = sorted(p for p in method_dir.iterdir() if is_ros2_bag_dir(p))
+        if not bag_dirs:
+            print(f"Warning: No ROS 2 bag directories found in {method_dir}")
             continue
 
-        for bag_file in sorted(bag_files):
-            bag_name = bag_file.stem  # filename without extension
-            print(f"\n  Processing: {bag_file.name}")
+        for bag_dir in bag_dirs:
+            bag_name = bag_dir.name
+            print(f"\n  Processing: {bag_name}")
 
-            # Output paths
+            # Output paths (siblings of the bag directory)
             traj_tum = method_dir / f"{bag_name}.tum"
             rpe_zip = method_dir / f"rpe_{bag_name}.zip"
             ate_zip = method_dir / f"ape_{bag_name}.zip"
 
             # Step 1: Extract TUM trajectory from bag
-            if not extract_tum_from_bag(bag_file, topic, traj_tum):
+            if not extract_tum_from_bag(bag_dir, topic, traj_tum):
                 print(f"  Skipping {bag_name} due to extraction error")
                 continue
 
