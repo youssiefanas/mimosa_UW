@@ -411,6 +411,12 @@ int main(int argc, char ** argv)
           rclcpp::Serialization<mimosa::ri::NortekBottomTrack> serializer;
           serializer.deserialize_message(&serialized_msg, msg.get());
           dvl_nt_msg_queue.push(msg);
+          // If depth is sourced from the same Nortek BottomTrack stream,
+          // feed the depth manager directly — depth has no IMU dependency,
+          // so it doesn't need the queueing the velocity factor needs.
+          if (depth_manager.getType() == mimosa::depth::DepthSource::NortekBottomTrack) {
+            depth_manager.callbackNortekBottomTrack(msg);
+          }
         }
       } else if (bag_msg->topic_name == radar_topic) {
         auto msg = std::make_shared<mimosa::ri::SensorMsgsPointCloud2>();
@@ -423,10 +429,13 @@ int main(int argc, char ** argv)
         serializer.deserialize_message(&serialized_msg, msg.get());
         odometry_manager.callback(msg);
       } else if (bag_msg->topic_name == depth_topic) {
-        auto msg = std::make_shared<mimosa::ri::SensorMsgsFluidPressure>();
-        rclcpp::Serialization<mimosa::ri::SensorMsgsFluidPressure> serializer;
-        serializer.deserialize_message(&serialized_msg, msg.get());
-        depth_manager.callback(msg);
+        // Reachable when depth_topic differs from dvl_topic (i.e. FluidPressure source).
+        if (depth_manager.getType() == mimosa::depth::DepthSource::FluidPressure) {
+          auto msg = std::make_shared<mimosa::ri::SensorMsgsFluidPressure>();
+          rclcpp::Serialization<mimosa::ri::SensorMsgsFluidPressure> serializer;
+          serializer.deserialize_message(&serialized_msg, msg.get());
+          depth_manager.callbackFluidPressure(msg);
+        }
       }
     }
 

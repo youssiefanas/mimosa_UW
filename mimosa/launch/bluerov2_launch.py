@@ -19,9 +19,10 @@ BlueROV2 autopilot bridge:
   /bluerov2/camera/image/compressed     sensor_msgs/CompressedImage
 
 Mimosa is wired to:
-  IMU      ← /bluerov2/imu/data_raw   (raw — mimosa runs its own attitude estimation)
+  IMU      ← /nortek/imu              (sensor_msgs/Imu, produced by nortek_bridge from
+                                       /nucleus_node/imu_packets which is interfaces/IMU)
   DVL      ← /nucleus_node/bottom_track_packets  (Nortek BottomTrack, dvl_type=1)
-  Depth    ← /bluerov2/pressure       (FluidPressure, converted to depth inside mimosa)
+  Depth    ← /nucleus_node/bottom_track_packets  (BottomTrack.pressure field, depth_source=1)
   Odometry ← /visual_odom_node/odometry (only if `vo` arg is true)
 """
 
@@ -76,7 +77,19 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('vo')),
     )
 
-    # ── 3. mimosa state estimator ────────────────────────────────────────────
+    # ── 3. nortek_bridge: interfaces/IMU → sensor_msgs/Imu ──────────────────
+    nortek_imu_bridge = Node(
+        package='nortek_bridge',
+        executable='imu_bridge',
+        name='nortek_imu_bridge',
+        output='screen',
+        remappings=[
+            ('~/imu_in',  '/nucleus_node/imu_packets'),
+            ('~/imu_out', '/nortek/imu'),
+        ],
+    )
+
+    # ── 4. mimosa state estimator ────────────────────────────────────────────
     mimosa_params = os.path.join(mimosa_pkg, 'config', 'bluerov2', 'params.yaml')
     qos_overrides = os.path.join(mimosa_pkg, 'config', 'bluerov2', 'qos_overrides.yaml')
 
@@ -93,14 +106,14 @@ def generate_launch_description():
             },
         ],
         remappings=[
-            ('~/imu/manager/imu_in',           '/bluerov2/imu/data_raw'),
+            ('~/imu/manager/imu_in',           '/nortek/imu'),
             ('~/dvl/manager/dvl_in',           '/nucleus_node/bottom_track_packets'),
-            ('~/depth/manager/depth_in',       '/bluerov2/pressure'),
+            ('~/depth/manager/depth_in',       '/nucleus_node/bottom_track_packets'),
             ('~/odometry/manager/odometry_in', '/visual_odom_node/odometry'),
         ],
     )
 
-    # ── 4. RViz (optional) ───────────────────────────────────────────────────
+    # ── 5. RViz (optional) ───────────────────────────────────────────────────
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
@@ -114,6 +127,7 @@ def generate_launch_description():
         # vo_arg,
         # image_republisher,
         # vo_node,
+        nortek_imu_bridge,
         mimosa_node,
         # rviz_node,
     ])

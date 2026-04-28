@@ -184,30 +184,34 @@ dvl:
   sensor_frame: mimosa_dvl
   # DVL mount in body frame: [x, y, z, qx, qy, qz, qw].
   # Update to the real mount offset/orientation on the ROV.
-  T_B_S: [0.0, 0.0, -0.2, 0.0, 0.0, 0.0, 1.0]
+  T_B_S: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
   manager:
     log_level: debug
     initial_skip: 0
     enabled: true
     use_to_init: true
-    ts_offset: 9
+    ts_offset: 0       # Nortek IMU and DVL share system_timestamp; no skew to compensate
     dvl_type: 1        # 0 = Waterlinked A50, 1 = Nortek Nucleus
     fom_scale: 1.0
     max_fom: 0.5
     max_velocity: 10.0
 
-# Pressure-derived depth prior from /bluerov2/pressure (sensor_msgs/FluidPressure, Pa).
+# Pressure-derived depth prior. Source selectable via depth_source:
+#   0 = sensor_msgs/FluidPressure on its own topic (e.g. /bluerov2/pressure)
+#   1 = pressure field of interfaces/BottomTrack on /nucleus_node/bottom_track_packets (Nortek)
 depth:
   sensor_frame: mimosa_depth
-  # Pressure sensor mount in body frame; adjust to the Bar30/Bar100 location.
-  T_B_S: [0.0, 0.0, -0.05, 0.0, 0.0, 0.0, 1.0]
+  # Pressure cell mount in body frame. Nortek DVL is 30 cm below body origin.
+  T_B_S: [0.0, 0.0, -0.3, 0.0, 0.0, 0.0, 1.0]
   manager:
     log_level: debug
     enabled: true
     use_to_init: false
     initial_skip: 0
     ts_offset: 0
-    sigma_depth_m: 0.05         # measurement noise sigma [m]
-    fluid_density: 1025.0       # seawater; set 1000.0 for freshwater pool tests
-    surface_pressure: 101325.0  # atmospheric reference [Pa]
-    gravity_magnitude: 9.80665  # [m/s^2]
+    sigma_depth_m: 0.05            # measurement noise sigma [m]
+    fluid_density: 1025.0          # seawater; set 1000.0 for freshwater pool tests
+    surface_pressure: 0.0          # Nortek publishes gauge pressure (atm already removed); set 101325.0 for absolute (Bar30)
+    gravity_magnitude: 9.80665     # [m/s^2]
+    depth_source: 1                # 0 = FluidPressure msg, 1 = Nortek BottomTrack
+    n_calibration_samples: 50      # average first N surface readings as zero offset; 0 disables
