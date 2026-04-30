@@ -77,10 +77,10 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('vo')),
     )
 
-    # ── 3. nortek_bridge: interfaces/IMU → sensor_msgs/Imu ──────────────────
+    # ── 3. nortek_imu_bridge: interfaces/IMU → sensor_msgs/Imu ──────────────
     nortek_imu_bridge = Node(
-        package='nortek_bridge',
-        executable='imu_bridge',
+        package='mimosa',
+        executable='nortek_imu_bridge',
         name='nortek_imu_bridge',
         output='screen',
         remappings=[
@@ -129,5 +129,5 @@ def generate_launch_description():
         # vo_node,
         nortek_imu_bridge,
         mimosa_node,
-        # rviz_node,
+        rviz_node,
     ])

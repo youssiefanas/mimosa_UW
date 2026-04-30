@@ -182,5 +182,5 @@ dvl:
     ts_offset: 0
     dvl_type: 0        # 0=Waterlinked, 1=Nortek
     fom_scale: 1.0     # sigma = fom * fom_scale
-    max_fom: 0.5       # reject if FOM > this [m/s]
-    max_velocity: 10.0 # reject if |v| > this [m/s]
+    max_fom: 1.5       # reject if FOM > this [m/s]
+    max_velocity: 3.0 # reject if |v| > this [m/s]

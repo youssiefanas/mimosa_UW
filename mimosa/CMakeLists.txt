@@ -210,6 +210,16 @@ foreach(EXEC ${EXECUTABLES})
   )
 endforeach()
 
+# Lightweight Nortek IMU bridge (interfaces/msg/IMU -> sensor_msgs/msg/Imu).
+# Doesn't need GTSAM/PCL/etc., so we skip linking ${PROJECT_NAME}_lib.
+# ROS 2 only — the bridge consumes ROS 2 message types from the Nucleus driver.
+if(NOT DETECTED_ROS_VERSION EQUAL 1)
+  add_executable(nortek_imu_bridge src/nortek_imu_bridge.cpp)
+  ament_target_dependencies(nortek_imu_bridge rclcpp sensor_msgs interfaces)
+  target_compile_features(nortek_imu_bridge PUBLIC cxx_std_17)
+  install(TARGETS nortek_imu_bridge RUNTIME DESTINATION ${RUNTIME_DESTINATION})
+endif()
+
 install(
   DIRECTORY include/${PROJECT_NAME}/
   DESTINATION ${INCLUDE_DESTINATION}

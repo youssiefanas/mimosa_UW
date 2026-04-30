@@ -207,4 +207,4 @@ depth:
     surface_pressure: 101325.0  # atmospheric reference [Pa]
     gravity_magnitude: 9.80665  # [m/s^2]
     depth_source: 0             # 0 = FluidPressure msg, 1 = Nortek BottomTrack
-    n_calibration_samples: 0    # 0 disables; otherwise average first N samples as zero offset
+    pressure_offset_pa: 0.0     # manual on-deck calibration offset [Pa]; set to (raw_pressure_in_air - surface_pressure)
