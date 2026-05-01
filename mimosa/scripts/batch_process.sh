@@ -7,7 +7,7 @@
 # for downstream evaluation (e.g. with evo_*).
 #
 # Usage:
-#   batch_process.sh <base_dir> [bag_subpath] [launch_file]
+#   batch_process.sh <base_dir> [bag_subpath] [launch_file] [output_dir]
 #
 #   base_dir     Directory whose subfolders each contain a ROS 2 bag.
 #   bag_subpath  Optional path inside each subfolder where the bag dir lives.
@@ -16,24 +16,31 @@
 #                are nested at <base_dir>/<run>/processed/sensors_only_with_clouds/
 #   launch_file  Launch file to invoke per bag.
 #                Defaults to "bluerov2_rosbag_launch.py".
-#
-# Output (one estimate.tum per processed bag) is written next to the bag
-# directory: <bag_dir>/../estimate.tum.
+#   output_dir   Optional directory to collect trajectories into, named
+#                <subfolder>.tum. If a destination already exists, the new
+#                file is saved as <subfolder>_<YYYYMMDD_HHMMSS>.tum so prior
+#                runs are preserved. If unset, falls back to writing
+#                <bag_dir>/../estimate.tum (legacy behavior).
 
 set -euo pipefail
 
 if [ $# -lt 1 ]; then
-    echo "Usage: $0 <base_dir> [bag_subpath] [launch_file]"
+    echo "Usage: $0 <base_dir> [bag_subpath] [launch_file] [output_dir]"
     exit 1
 fi
 
 BASE_DIR="$1"
 BAG_SUBPATH="${2:-}"
 LAUNCH_FILE="${3:-bluerov2_rosbag_launch.py}"
+OUTPUT_DIR="${4:-}"
 
 if [ ! -d "$BASE_DIR" ]; then
     echo "Error: base_dir does not exist: $BASE_DIR"
     exit 1
+fi
+
+if [ -n "$OUTPUT_DIR" ]; then
+    mkdir -p "$OUTPUT_DIR"
 fi
 
 # Resolve mimosa's logs_directory by reading the bluerov2 params file.
@@ -52,6 +59,7 @@ echo "bag_subpath: ${BAG_SUBPATH:-(subfolder is the bag itself)}"
 echo "launch:      $LAUNCH_FILE"
 echo "logs_dir:    $LOGS_DIR"
 echo "tum_file:    $TUM_FILE"
+echo "output_dir:  ${OUTPUT_DIR:-(none, writing next to each bag)}"
 echo
 
 shopt -s nullglob
@@ -76,7 +84,15 @@ for folder in "$BASE_DIR"/*/; do
 
     if ros2 launch mimosa "$LAUNCH_FILE" bag_name:="$bag_path"; then
         if [ -f "$TUM_FILE" ]; then
-            dest="${bag_path%/}/../estimate.tum"
+            if [ -n "$OUTPUT_DIR" ]; then
+                dest="${OUTPUT_DIR%/}/${folder_name}.tum"
+                if [ -e "$dest" ]; then
+                    ts="$(date +%Y%m%d_%H%M%S)"
+                    dest="${OUTPUT_DIR%/}/${folder_name}_${ts}.tum"
+                fi
+            else
+                dest="${bag_path%/}/../estimate.tum"
+            fi
             cp "$TUM_FILE" "$dest"
             echo "[OK  ] $folder_name -> $dest"
         else

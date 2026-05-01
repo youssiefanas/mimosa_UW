@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """
-TUM Path Publisher (ROS 2) - Publishes a Path message from a TUM format file to RViz.
+TUM Path Publisher (ROS 2) - Publishes Path messages from a TUM format file or folder to RViz.
 TUM format: timestamp tx ty tz qx qy qz qw (space-delimited)
 
 Usage:
-  python3 tum_path_publisher_ros2.py path/to/trajectory.tum [--topic_name /tum_path] [--frame_id map] [--hz 0.5]
+  python3 tum_path_publisher_ros2.py path/to/trajectory_or_folder [--topic_name /tum_path] [--frame_id map] [--hz 0.5]
 
-Then in RViz2, add a Path display subscribed to /tum_path.
+Then in RViz2, add a Path display subscribed to /tum_path (or /tum_path_<filename> for folders).
 """
 
 import argparse
 import csv
+import os
+import glob
 import sys
 
 import numpy as np
@@ -99,7 +101,6 @@ class TumPathPublisher(Node):
 
         # Latching equivalent in ROS 2: transient local durability
         qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
-        self.pub = self.create_publisher(Path, args.topic_name, qos)
 
         # Build transform matrix if requested
         transform_matrix = None
@@ -109,15 +110,41 @@ class TumPathPublisher(Node):
                 f"Applying {args.transform_side} transform: {args.transform}"
             )
 
-        # Load path from TUM file
-        self.path_msg = self._load_tum_file(
-            args.file_name, args.frame_id, transform_matrix, args.transform_side
-        )
+        target_path = args.target_path
+        if os.path.isdir(target_path):
+            tum_files = sorted(glob.glob(os.path.join(target_path, "*.tum")))
+            if not tum_files:
+                self.get_logger().error(f"No .tum files found in directory: {target_path}")
+                sys.exit(1)
+        else:
+            tum_files = [target_path]
 
-        self.get_logger().info(
-            f"Publishing {len(self.path_msg.poses)} poses on '{args.topic_name}' "
-            f"in frame '{args.frame_id}' at {args.hz} Hz"
-        )
+        self.pubs = []
+        self.paths = []
+
+        base_topic = args.topic_name
+
+        for file_path in tum_files:
+            if len(tum_files) > 1:
+                basename = os.path.splitext(os.path.basename(file_path))[0]
+                safe_name = "".join(c if c.isalnum() else "_" for c in basename)
+                topic_name = f"{base_topic}_{safe_name}"
+            else:
+                topic_name = base_topic
+
+            pub = self.create_publisher(Path, topic_name, qos)
+
+            path_msg = self._load_tum_file(
+                file_path, args.frame_id, transform_matrix, args.transform_side
+            )
+
+            self.get_logger().info(
+                f"Publishing {len(path_msg.poses)} poses from '{os.path.basename(file_path)}' "
+                f"on '{topic_name}' in frame '{args.frame_id}' at {args.hz} Hz"
+            )
+
+            self.pubs.append(pub)
+            self.paths.append(path_msg)
 
         self.timer = self.create_timer(1.0 / args.hz, self._publish)
 
@@ -163,15 +190,17 @@ class TumPathPublisher(Node):
         return path_msg
 
     def _publish(self):
-        self.path_msg.header.stamp = self.get_clock().now().to_msg()
-        self.pub.publish(self.path_msg)
+        now = self.get_clock().now().to_msg()
+        for pub, path_msg in zip(self.pubs, self.paths):
+            path_msg.header.stamp = now
+            pub.publish(path_msg)
 
 
 def main():
     parser = argparse.ArgumentParser(
         description="Publish a TUM trajectory as nav_msgs/Path to RViz (ROS 2)"
     )
-    parser.add_argument("file_name", type=str, help="Path to TUM format file")
+    parser.add_argument("target_path", type=str, help="Path to TUM format file or directory containing .tum files")
     parser.add_argument(
         "--frame_id", type=str, default="map", help="Frame ID (default: map)"
     )
