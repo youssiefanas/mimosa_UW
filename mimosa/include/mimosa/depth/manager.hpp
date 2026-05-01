@@ -9,7 +9,6 @@
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <vector>
 
 #include "mimosa/depth/factor.hpp"
 #include "mimosa/sensor_manager_base.hpp"
@@ -35,15 +34,15 @@ struct ManagerConfig
   float surface_pressure = 101325.0;   // baseline pressure subtracted from the reading [Pa]
   float gravity_magnitude = 9.80665;   // [m/s^2]
   int depth_source = 0;                // 0 = FluidPressure msg, 1 = Nortek BottomTrack
-  int n_calibration_samples = 0;       // 0 disables; otherwise average first N samples as zero offset
+  float pressure_offset_pa = 0.0;      // manual on-deck calibration offset [Pa], subtracted from raw reading
 };
 
 void declare_config(ManagerConfig & config);
 
-// Shared logic: pressure (Pa) → optional startup zero-offset calibration →
-// signed world-z depth → DepthFactor. Each specialized manager owns one of
-// these; the templated SensorManagerBase scaffolding stays one-message-type-
-// per-class (mirrors the dvl::Manager design).
+// Shared logic: pressure (Pa) → signed world-z depth → DepthFactor. Each
+// specialized manager owns one of these; the templated SensorManagerBase
+// scaffolding stays one-message-type-per-class (mirrors the dvl::Manager
+// design).
 class DepthProcessor
 {
 public:
@@ -55,22 +54,18 @@ public:
 
   DepthProcessor(const ManagerConfig & config, spdlog::logger * logger);
 
-  // Returns the new factor graph + measured_z to declare, or std::nullopt
-  // while the startup calibration is still gathering samples.
-  std::optional<ProcessResult> process(double pressure_pa);
+  // Returns the new factor graph + measured_z to declare.
+  ProcessResult process(double pressure_pa);
 
   // Latest valid measurement (world-z, with up positive). Updated on every
-  // successful processed sample, including before the graph is initialized,
-  // so that another sensor's init call can pull it through the registered
-  // provider and anchor the first pose's z to the true depth.
+  // processed sample, including before the graph is initialized, so that
+  // another sensor's init call can pull it through the registered provider
+  // and anchor the first pose's z to the true depth.
   std::optional<double> getInitZHint();
 
 private:
   const ManagerConfig & config_;
   spdlog::logger * logger_;
-
-  std::vector<double> calibration_samples_;
-  std::optional<double> pressure_offset_pa_;
 
   std::mutex z_mutex_;
   std::optional<double> latest_measured_z_;

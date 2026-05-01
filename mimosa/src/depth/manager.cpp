@@ -6,8 +6,6 @@
 
 #include "mimosa/depth/manager.hpp"
 
-#include <numeric>
-
 #include "mimosa/state.hpp"
 
 namespace mimosa
@@ -23,35 +21,14 @@ DepthProcessor::DepthProcessor(const ManagerConfig & config, spdlog::logger * lo
 {
 }
 
-std::optional<DepthProcessor::ProcessResult> DepthProcessor::process(double pressure_pa)
+DepthProcessor::ProcessResult DepthProcessor::process(double pressure_pa)
 {
-  // Optional startup zero-offset calibration. While it's running we still
-  // accumulate samples but skip declaring a factor; this assumes the vehicle
-  // is at the surface and stationary during these first messages.
-  if (config_.n_calibration_samples > 0 && !pressure_offset_pa_.has_value()) {
-    calibration_samples_.push_back(pressure_pa);
-    if (
-      static_cast<int>(calibration_samples_.size()) >= config_.n_calibration_samples) {
-      const double mean =
-        std::accumulate(calibration_samples_.begin(), calibration_samples_.end(), 0.0) /
-        static_cast<double>(calibration_samples_.size());
-      pressure_offset_pa_ = mean;
-      if (logger_) {
-        logger_->info(
-          "Depth pressure offset calibrated to {:.1f} Pa (~{:.4f} bar) over {} samples", mean,
-          mean / 100000.0, calibration_samples_.size());
-      }
-      calibration_samples_.clear();
-    }
-    return std::nullopt;
-  }
-
-  const double offset_pa = pressure_offset_pa_.value_or(0.0);
-
   // Convert pressure (Pa) to signed depth (m). World z is up, so submerged
-  // sensors have negative z. The matching residual lives in factor.hpp.
+  // sensors have negative z. pressure_offset_pa is a sensor-specific bias
+  // measured once on deck and set in the YAML. The matching residual lives
+  // in factor.hpp.
   const double depth_below_surface =
-    (pressure_pa - config_.surface_pressure - offset_pa) /
+    (pressure_pa - config_.surface_pressure - config_.pressure_offset_pa) /
     (config_.fluid_density * config_.gravity_magnitude);
   const double measured_z = -depth_below_surface;
 
@@ -99,19 +76,16 @@ void FluidPressureManager::callback(const ri::ConstSharedPtr<ri::SensorMsgsFluid
   const double pressure_pa = msg->fluid_pressure * 100000.0;
 
   auto result = processor_.process(pressure_pa);
-  if (!result.has_value()) {
-    return;
-  }
 
   logger_->debug(
-    "Declaring depth factor (ts: {} measured_z: {})", corrected_ts_, result->measured_z);
+    "Declaring depth factor (ts: {} measured_z: {})", corrected_ts_, result.measured_z);
   logger_->debug(
     "declare() — ts: {:.6f}, key: {}, provisional key: {}, use_to_init: {}, one_step_factors: {}",
-    corrected_ts_, new_key_, gdkf(new_key_), config_.base.use_to_init, result->factors.size());
+    corrected_ts_, new_key_, gdkf(new_key_), config_.base.use_to_init, result.factors.size());
 
   graph::Manager::DeclarationResult dr = graph_manager_->declare(
-    corrected_ts_, new_key_, config_.base.use_to_init, result->factors, std::nullopt,
-    result->measured_z);
+    corrected_ts_, new_key_, config_.base.use_to_init, result.factors, std::nullopt,
+    result.measured_z);
 
   if (!handleDeclarationResult(dr)) {
     return;
@@ -145,19 +119,16 @@ void NortekBottomTrackManager::callback(const ri::ConstSharedPtr<ri::NortekBotto
   const double pressure_pa = static_cast<double>(msg->pressure) * 100000.0;
 
   auto result = processor_.process(pressure_pa);
-  if (!result.has_value()) {
-    return;
-  }
 
   logger_->debug(
-    "Declaring depth factor (ts: {} measured_z: {})", corrected_ts_, result->measured_z);
+    "Declaring depth factor (ts: {} measured_z: {})", corrected_ts_, result.measured_z);
   logger_->debug(
     "declare() — ts: {:.6f}, key: {}, provisional key: {}, use_to_init: {}, one_step_factors: {}",
-    corrected_ts_, new_key_, gdkf(new_key_), config_.base.use_to_init, result->factors.size());
+    corrected_ts_, new_key_, gdkf(new_key_), config_.base.use_to_init, result.factors.size());
 
   graph::Manager::DeclarationResult dr = graph_manager_->declare(
-    corrected_ts_, new_key_, config_.base.use_to_init, result->factors, std::nullopt,
-    result->measured_z);
+    corrected_ts_, new_key_, config_.base.use_to_init, result.factors, std::nullopt,
+    result.measured_z);
 
   if (!handleDeclarationResult(dr)) {
     return;
@@ -216,15 +187,14 @@ void declare_config(ManagerConfig & config)
       field(config.gravity_magnitude, "gravity_magnitude", "[m/s^2]");
       field(config.depth_source, "depth_source", "0 = FluidPressure msg, 1 = Nortek BottomTrack");
       field(
-        config.n_calibration_samples, "n_calibration_samples",
-        "0 disables; otherwise average first N samples as zero offset");
+        config.pressure_offset_pa, "pressure_offset_pa",
+        "manual on-deck calibration offset [Pa], subtracted from raw reading");
     }
   }
 
   check(config.sigma_depth_m, GT, 0.0f, "sigma_depth_m");
   check(config.fluid_density, GT, 0.0f, "fluid_density");
   check(config.gravity_magnitude, GT, 0.0f, "gravity_magnitude");
-  check(config.n_calibration_samples, GE, 0, "n_calibration_samples");
 }
 
 }  // namespace depth
