@@ -52,7 +52,8 @@ void WaterlinkedManager::callback(const ri::ConstSharedPtr<ri::WaterlinkedDVL> &
   }
 
   // Waterlinked provides a single FOM for all axes
-  const double sigma = msg->fom * config_.fom_scale;
+  const double sigma =
+    msg->fom * msg->fom * config_.fom_scale;  // Quadratic scaling as per Waterlinked docs
   const gtsam::Vector3 noise_sigmas(sigma, sigma, sigma);
 
   processVelocity(vel_sensor, noise_sigmas, corrected_ts_);
@@ -174,9 +175,8 @@ void NortekManager::callback(const ri::ConstSharedPtr<ri::NortekBottomTrack> & m
 
   // Per-axis noise from FOM
   const gtsam::Vector3 noise_sigmas(
-    msg->fom_x * config_.fom_scale,
-    msg->fom_y * config_.fom_scale,
-    msg->fom_z * config_.fom_scale);
+    msg->fom_x * msg->fom_x * config_.fom_scale, msg->fom_y * msg->fom_y * config_.fom_scale,
+    msg->fom_z * msg->fom_z * config_.fom_scale);
 
   processVelocity(vel_sensor, noise_sigmas, corrected_ts_);
 }
