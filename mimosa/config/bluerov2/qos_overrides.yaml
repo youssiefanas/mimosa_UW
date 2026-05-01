@@ -9,7 +9,7 @@
 mimosa_node:
   ros__parameters:
     qos_overrides:
-      "/bluerov2/imu/data_raw":
+      "/bluerov2/imu/data":
         subscription:
           reliability: best_effort
       "/nucleus_node/bottom_track_packets":

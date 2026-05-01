@@ -16,14 +16,16 @@ imu:
     # Tune for the actual BlueROV2 IMU (Pixhawk ICM-20602 / ICM-42688 class MEMS).
     # These are reasonable starting values — re-estimate via Allan variance on a
     # stationary log if you can.
-    acc_noise_density: 1.5e-2       # [ m / s^2 / sqrt(Hz) ] 
-    acc_bias_random_walk: 2.0e-3     # [ m / s^3 / sqrt(Hz) ]
-    gyro_noise_density: 1.5e-3       # [ rad / s / sqrt(Hz) ]
-    gyro_bias_random_walk: 3.0e-5    # [ rad / s^2 / sqrt(Hz) ]
-    # acc_noise_density: 6.5e-4       # [ m / s^2 / sqrt(Hz) ] 
-    # acc_bias_random_walk: 5.9e-2     # [ m / s^3 / sqrt(Hz) ]
-    # gyro_noise_density: 8.7e-5       # [ rad / s / sqrt(Hz) ]
-    # gyro_bias_random_walk: 3.0e-5 
+    # acc_noise_density: 1.5e-2       # [ m / s^2 / sqrt(Hz) ] 
+    # acc_bias_random_walk: 2.0e-3     # [ m / s^3 / sqrt(Hz) ]
+    # gyro_noise_density: 1.5e-3       # [ rad / s / sqrt(Hz) ]
+    # gyro_bias_random_walk: 3.0e-5    # [ rad / s^2 / sqrt(Hz) ]
+    
+    acc_noise_density: 3.5e-1       # [ m / s^2 / sqrt(Hz) ] 
+    acc_bias_random_walk: 2.0e-2     # [ m / s^3 / sqrt(Hz) ]
+    gyro_noise_density: 1.5e-2       # [ rad / s / sqrt(Hz) ]
+    gyro_bias_random_walk: 1.50e-3    # [ rad / s^2 / sqrt(Hz) ]
+
     integration_sigma: 1.0e-4
     use_2nd_order_coriolis: false
     use_estimated_gravity: false
@@ -35,7 +37,7 @@ graph:
     log_level: info
     max_measurement_latency: 0.9
     smoother:
-      lag: 3.0
+      lag: 2.0
       wildfire_threshold: 0.001
       relinearize_threshold_translation: 5.0e-3
       relinearize_threshold_rotation: 1.75e-2
@@ -188,7 +190,7 @@ dvl:
   sensor_frame: mimosa_dvl
   # DVL mount in body frame: [x, y, z, qx, qy, qz, qw].
   # Update to the real mount offset/orientation on the ROV.
-  T_B_S: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+  T_B_S: [-0.1, -0.1, 0.3, 1.0, 0.0, 0.0, 0.0]
   manager:
     log_level: info
     initial_skip: 0
@@ -196,9 +198,9 @@ dvl:
     use_to_init: true
     ts_offset: 0       # Nortek IMU and DVL share system_timestamp; no skew to compensate
     dvl_type: 1        # 0 = Waterlinked A50, 1 = Nortek Nucleus
-    fom_scale: 1.0
+    fom_scale: 0.10
     max_fom: 1.0
-    max_velocity: 10.0
+    max_velocity: 5.0
 
 # Pressure-derived depth prior. Source selectable via depth_source:
 #   0 = sensor_msgs/FluidPressure on its own topic (e.g. /bluerov2/pressure)
@@ -206,16 +208,16 @@ dvl:
 depth:
   sensor_frame: mimosa_depth
   # Pressure cell mount in body frame. Nortek DVL is 30 cm below body origin.
-  T_B_S: [0.0, 0.0, -0.3, 0.0, 0.0, 0.0, 1.0]
+  T_B_S: [0.0, 0.0, 0.3, 0.0, 0.0, 0.0, 1.0]
   manager:
     log_level: info
     enabled: true
     use_to_init: false
     initial_skip: 0
     ts_offset: 0
-    sigma_depth_m: 0.001            # measurement noise sigma [m]
+    sigma_depth_m: 1e-4           # measurement noise sigma [m]
     fluid_density: 1025.0          # seawater; set 1000.0 for freshwater pool tests
     surface_pressure: 0.0          # Nortek publishes gauge pressure (atm already removed); set 101325.0 for absolute (Bar30)
     gravity_magnitude: 9.80665     # [m/s^2]
     depth_source: 1                # 0 = FluidPressure msg, 1 = Nortek BottomTrack
-    pressure_offset_pa: 0.0        # manual on-deck calibration offset [Pa]; set to (raw_pressure_in_air - surface_pressure)
+    pressure_offset_pa: 11200.0        # manual on-deck calibration offset [Pa]; set to (raw_pressure_in_air - surface_pressure)
