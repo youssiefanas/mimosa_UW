@@ -1,13 +1,13 @@
 """
-BlueROV2 (recorded bag) replay launch.
+BlueROV2 (recorded bag) replay launch for BlueROV IMU.
 
 Plays a ROS 2 bag through the mimosa_rosbag executable so that an offline
 BlueROV2 + Nortek Nucleus dataset is processed identically to the live
-`bluerov2_launch.py` pipeline.
+`bluerov2_launch_bluerov_imu.py` pipeline.
 
 Usage:
-    ros2 launch mimosa bluerov2_rosbag_launch.py bag_name:=/path/to/bag
-    ros2 launch mimosa bluerov2_rosbag_launch.py bag_name:=/path/to/bags/'*' s:=2.5
+    ros2 launch mimosa bluerov_imu_rosbag_launch.py bag_name:=/path/to/bag
+    ros2 launch mimosa bluerov_imu_rosbag_launch.py bag_name:=/path/to/bags/'*' s:=2.5
 
 Args:
     bag_name : single bag dir, or shell-glob pattern across multiple bags
@@ -20,7 +20,7 @@ on_exit handler tears the rest of the launch tree down — so the launch
 returns immediately after the last bag, making this safe to chain in a
 batch script.
 
-Trajectory output (TUM): see `logs_directory` in bluerov2/params.yaml,
+Trajectory output (TUM): see `logs_directory` in bluerov2/bluerov_imu_params.yaml,
 e.g. /tmp/mimosa_bluerov2/graph_manager_odometry.tum.
 """
 
@@ -47,17 +47,12 @@ def generate_launch_description():
         name='mimosa_node',
         output='screen',
         parameters=[{
-            'config_path': os.path.join(pkg_share, 'config', 'bluerov2', 'params.yaml'),
+            'config_path': os.path.join(pkg_share, 'config', 'bluerov2', 'bluerov_imu_params.yaml'),
             'bag_name': LaunchConfiguration('bag_name'),
             's': LaunchConfiguration('s'),
-            # mimosa_rosbag reads the bag directly (no ROS pubsub for sensor
-            # data), so the live nortek_imu_bridge can't sit in the data path.
-            # This parameter tells mimosa_rosbag to also pull interfaces/msg/IMU
-            # off the raw Nortek topic and convert it inline.
-            'nortek_raw_imu_topic': '/nucleus_node/imu_packets',
         }],
         remappings=[
-            ('~/imu/manager/imu_in',           '/nortek/imu'),
+            ('~/imu/manager/imu_in',           '/bluerov2/imu/data'),
             ('~/dvl/manager/dvl_in',           '/nucleus_node/bottom_track_packets'),
             ('~/depth/manager/depth_in',       '/nucleus_node/bottom_track_packets'),
             ('~/odometry/manager/odometry_in', '/visual_odom_node/odometry'),
