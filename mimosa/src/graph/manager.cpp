@@ -541,8 +541,16 @@ Manager::DeclarationResult Manager::declare(
   optimized_values_ = smoother_->calculateEstimate();
   logger_->trace("Calculated optimized values with {} values", optimized_values_.size());
 
-  // TODO: Covariance tracking — compute marginal covariances for each sensor factor
-  // and the overall system (pose, velocity, bias) after each optimization step.
+  // Pose and velocity marginals are now refreshed inside updateStateToKeyTs.
+  // TODO: Per-factor innovation / whitened residual covariance (S = H P Hᵀ + R)
+  // is not surfaced by GTSAM for nonlinear factors. Compute it manually by
+  // pulling the linearized Jacobian H from each factor at the current estimate
+  // and combining with the joint marginal of the connected keys. Useful for
+  // chi-square gating to drop outlier sensor measurements before they enter
+  // the smoother.
+  // TODO: Marginals for B(key) (IMU bias) and G(0) (gravity) — same mechanism
+  // as the pose/velocity marginals below; publish on /graph/debug or a new
+  // dedicated topic when needed.
 
   // Update the current state
   updateStateToKeyTs(key, ts);
@@ -713,6 +721,21 @@ void Manager::updateStateToKeyTs(const gtsam::Key key, const double ts)
   const auto g = smoother_->calculateEstimate<gtsam::Unit3>(G(0));
 
   state_.update(key, ts, gtsam::NavState(p, v), b, g);
+
+  // Refresh marginal covariances for the latest state. One back-substitution
+  // each against the cached Bayes-tree factorization — sub-millisecond.
+  // Pose ordering follows GTSAM tangent space: [rot(3), trans(3)]. Velocity
+  // is in the world (map) frame; rotation to the body frame happens at
+  // publish time.
+  try {
+    latest_pose_covariance_ = smoother_->marginalCovariance(X(key));
+    latest_velocity_covariance_W_ = smoother_->marginalCovariance(V(key));
+    latest_covariances_valid_ = true;
+  } catch (const std::exception & e) {
+    latest_covariances_valid_ = false;
+    logger_->warn(
+      "marginalCovariance failed for key {} (ts: {:.6f}): {}", gdkf(key), ts, e.what());
+  }
 }
 
 void Manager::initializeGraph(
@@ -818,6 +841,41 @@ void Manager::publishResults()
     const gtsam::Vector3 v_B =
       state_.navState().pose().rotation().unrotate(state_.navState().velocity());
     convert(v_B, odometry.twist.twist.linear);
+
+    // Covariance: zero out then fill if marginals are available. ROS pose.covariance
+    // ordering is [x, y, z, rot_x, rot_y, rot_z]; GTSAM tangent ordering is
+    // [rot, trans] — so we swap the two 3-blocks when copying.
+    odometry.pose.covariance.fill(0.0);
+    odometry.twist.covariance.fill(0.0);
+    if (latest_covariances_valid_) {
+      const gtsam::Matrix3 & cov_rr = latest_pose_covariance_.block<3, 3>(0, 0);
+      const gtsam::Matrix3 & cov_rt = latest_pose_covariance_.block<3, 3>(0, 3);
+      const gtsam::Matrix3 & cov_tr = latest_pose_covariance_.block<3, 3>(3, 0);
+      const gtsam::Matrix3 & cov_tt = latest_pose_covariance_.block<3, 3>(3, 3);
+      for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+          odometry.pose.covariance[(0 + i) * 6 + (0 + j)] = cov_tt(i, j);
+          odometry.pose.covariance[(0 + i) * 6 + (3 + j)] = cov_tr(i, j);
+          odometry.pose.covariance[(3 + i) * 6 + (0 + j)] = cov_rt(i, j);
+          odometry.pose.covariance[(3 + i) * 6 + (3 + j)] = cov_rr(i, j);
+        }
+      }
+
+      // twist.linear is in body frame; rotate the world-frame velocity covariance:
+      // Σ_v_B = R_B_W · Σ_v_W · R_B_Wᵀ. This ignores the rotation/velocity
+      // cross-covariance (would need the joint marginal of {X(key), V(key)}),
+      // so the body-frame velocity covariance here is a lower bound.
+      const gtsam::Matrix3 R_B_W = state_.navState().pose().rotation().matrix().transpose();
+      const gtsam::Matrix3 cov_v_B = R_B_W * latest_velocity_covariance_W_ * R_B_W.transpose();
+      for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+          odometry.twist.covariance[i * 6 + j] = cov_v_B(i, j);
+        }
+      }
+      // twist.angular covariance is left zero — angular velocity is not a state
+      // variable; a static proxy from gyro noise density could be added if needed.
+    }
+
     pub_odometry_->publish(odometry);
   }
 

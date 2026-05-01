@@ -107,6 +107,13 @@ private:
   std::mutex graph_mutex_;
   ri::MimosaMsgsGraphManagerDebug debug_msg_;
 
+  // Marginal covariances of the latest state, refreshed from the smoother after
+  // every updateStateToKeyTs call. Tangent-space ordering matches GTSAM:
+  // pose is [rot(3), trans(3)]; velocity is in the world (map) frame.
+  gtsam::Matrix6 latest_pose_covariance_ = gtsam::Matrix6::Zero();
+  gtsam::Matrix3 latest_velocity_covariance_W_ = gtsam::Matrix3::Zero();
+  bool latest_covariances_valid_ = false;
+
   // Outputs
   ri::TransformBroadcaster tf2_broadcaster_;
   ri::StaticTransformBroadcaster tf2_static_broadcaster_;
