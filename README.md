@@ -56,13 +56,13 @@ where `t_B_S` is the lever arm of the pressure sensor in the body frame (taken f
 The manager converts raw pressure to a signed z via the hydrostatic equation:
 
 ```
-depth_below_surface = (fluid_pressure - surface_pressure) / (fluid_density * g)
-raw_measured_z      = -depth_below_surface        # world z is up
+depth_below_surface = (fluid_pressure - surface_pressure - pressure_offset_pa) / (fluid_density * g)
+measured_z          = -depth_below_surface        # world z is up
 ```
 
-Because mimosa initializes with `T_W_B = (R_W_B, 0)` — i.e. the world origin is wherever the robot started, not the water surface — the manager captures an offset from the first valid pressure message and subtracts it on every subsequent measurement. The first depth factor therefore has zero residual against the init pose, and all later factors measure delta-z from the start of the run. The offset is logged at `info` level when captured.
+`pressure_offset_pa` is a sensor-specific bias measured once on deck: record the raw pressure reading in air, subtract `surface_pressure`, paste the result into the YAML. Leave it at `0.0` if your sensor is already calibrated against `surface_pressure` (the typical case for absolute sensors with a known datasheet offset, or gauge sensors with `surface_pressure: 0.0`). Because the offset is static, the depth factor reports the *true* signed z from the first message, even when the vehicle starts already submerged — `getInitZHint()` propagates this to the graph manager so `X(0).z()` initializes to the actual depth.
 
-`depth.manager.use_to_init` should be left `false`: the whole point of the offset is to anchor to whatever pose the init already picked, so having depth trigger init would be circular. The relevant config fields are `sigma_depth_m`, `fluid_density` (use `1025.0` for seawater, `1000.0` for freshwater), `surface_pressure` (Pa), and `gravity_magnitude`.
+The relevant config fields are `sigma_depth_m`, `fluid_density` (use `1025.0` for seawater, `1000.0` for freshwater), `surface_pressure` (Pa), `gravity_magnitude`, and `pressure_offset_pa`. `depth.manager.use_to_init` should be left `false`: depth alone cannot initialize a 6-DOF pose, so it should only refine an init produced by another sensor.
 
 ## Setup
 
