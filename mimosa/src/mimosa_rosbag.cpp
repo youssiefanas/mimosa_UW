@@ -22,6 +22,7 @@
 #else
 #include <spdlog/spdlog.h>
 
+#include <interfaces/msg/imu.hpp>
 #include <rosbag2_cpp/reader.hpp>
 #endif
 
@@ -152,6 +153,14 @@ int main(int argc, char ** argv)
   s_offset = static_cast<float>(node->declare_parameter<double>("s", 0.0));
   lidar_collection_delay =
     static_cast<float>(node->declare_parameter<double>("lidar_collection_delay", 0.0));
+  // When non-empty, also reads interfaces/msg/IMU off this topic and converts
+  // inline to sensor_msgs/Imu — same field mapping as nortek_imu_bridge. Lets
+  // bags that only have the raw Nortek topic feed the IMU manager directly,
+  // since rosbag mode bypasses ROS pubsub (so the bridge node can't help).
+  std::string nortek_raw_imu_topic =
+    node->declare_parameter<std::string>("nortek_raw_imu_topic", "");
+  std::string nortek_imu_frame_id =
+    node->declare_parameter<std::string>("nortek_imu_frame_id", "nortek_imu_link");
 #endif
   std::cout << "s_offset: " << s_offset << std::endl;
 
@@ -174,6 +183,12 @@ int main(int argc, char ** argv)
 
   std::vector<std::string> topics = {imu_topic,   dvl_topic,      lidar_topic,
                                      radar_topic, odometry_topic, depth_topic};
+
+#if DETECTED_ROS_VERSION != 1
+  if (!nortek_raw_imu_topic.empty()) {
+    topics.push_back(nortek_raw_imu_topic);
+  }
+#endif
 
   std::cout << "Topics: " << std::endl;
   for (const auto & topic : topics) {
@@ -304,6 +319,29 @@ int main(int argc, char ** argv)
   }
 
 #else  // ROS2
+  auto process_imu = [&](const std::shared_ptr<mimosa::ri::SensorMsgsImu> & msg) {
+    imu_manager->callback(msg);
+
+    if (!lidar_msg_queue.empty()) {
+      rclcpp::Time imu_stamp(msg->header.stamp);
+      rclcpp::Time lidar_stamp(lidar_msg_queue.front()->header.stamp);
+      if (imu_stamp - lidar_stamp > rclcpp::Duration::from_seconds(lidar_collection_delay)) {
+        lidar_manager.callback(lidar_msg_queue.front());
+        lidar_msg_queue.pop();
+      }
+    }
+
+    // Process queued DVL messages once IMU data covers their timestamps
+    while (!dvl_wl_msg_queue.empty()) {
+      dvl_manager.callbackWaterlinked(dvl_wl_msg_queue.front());
+      dvl_wl_msg_queue.pop();
+    }
+    while (!dvl_nt_msg_queue.empty()) {
+      dvl_manager.callbackNortek(dvl_nt_msg_queue.front());
+      dvl_nt_msg_queue.pop();
+    }
+  };
+
   int64_t start_time_ns = 0;
 
   for (const auto & path : bag_paths) {
@@ -379,26 +417,26 @@ int main(int argc, char ** argv)
         auto msg = std::make_shared<mimosa::ri::SensorMsgsImu>();
         rclcpp::Serialization<mimosa::ri::SensorMsgsImu> serializer;
         serializer.deserialize_message(&serialized_msg, msg.get());
-        imu_manager->callback(msg);
-
-        if (!lidar_msg_queue.empty()) {
-          rclcpp::Time imu_stamp(msg->header.stamp);
-          rclcpp::Time lidar_stamp(lidar_msg_queue.front()->header.stamp);
-          if (imu_stamp - lidar_stamp > rclcpp::Duration::from_seconds(lidar_collection_delay)) {
-            lidar_manager.callback(lidar_msg_queue.front());
-            lidar_msg_queue.pop();
-          }
+        process_imu(msg);
+      } else if (
+        !nortek_raw_imu_topic.empty() && bag_msg->topic_name == nortek_raw_imu_topic) {
+        interfaces::msg::IMU raw;
+        rclcpp::Serialization<interfaces::msg::IMU> serializer;
+        serializer.deserialize_message(&serialized_msg, &raw);
+        if (!raw.is_valid) {
+          continue;
         }
-
-        // Process queued DVL messages once IMU data covers their timestamps
-        while (!dvl_wl_msg_queue.empty()) {
-          dvl_manager.callbackWaterlinked(dvl_wl_msg_queue.front());
-          dvl_wl_msg_queue.pop();
-        }
-        while (!dvl_nt_msg_queue.empty()) {
-          dvl_manager.callbackNortek(dvl_nt_msg_queue.front());
-          dvl_nt_msg_queue.pop();
-        }
+        auto msg = std::make_shared<mimosa::ri::SensorMsgsImu>();
+        msg->header.stamp = raw.system_timestamp;
+        msg->header.frame_id = nortek_imu_frame_id;
+        msg->linear_acceleration.x = raw.accelerometer_x;
+        msg->linear_acceleration.y = raw.accelerometer_y;
+        msg->linear_acceleration.z = raw.accelerometer_z;
+        msg->angular_velocity.x = raw.gyro_x;
+        msg->angular_velocity.y = raw.gyro_y;
+        msg->angular_velocity.z = raw.gyro_z;
+        msg->orientation_covariance[0] = -1.0;  // orientation unknown (REP-145)
+        process_imu(msg);
       } else if (bag_msg->topic_name == dvl_topic) {
         // Queue DVL messages — process after next IMU to ensure buffer coverage
         if (dvl_manager.getType() == mimosa::dvl::DVLType::Waterlinked) {
