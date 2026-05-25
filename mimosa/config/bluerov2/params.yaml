@@ -6,10 +6,10 @@ body_frame: mimosa_body
 imu:
   manager:
     log_level: info
-    ts_offset: 0.0
+    ts_offset: 0.04
     max_buffer_duration: 150
     pose_init_wait_secs: 2
-    interpolation_max_ts_diff: 1
+    interpolation_max_ts_diff: 0.5
     extrapolation_max_ts_diff: 0.15
     acc_scale_factor: 1
   preintegration:
@@ -17,15 +17,16 @@ imu:
     # These are reasonable starting values — re-estimate via Allan variance on a
     # stationary log if you can.
 
-    # acc_noise_density: 3.5e-1       # [ m / s^2 / sqrt(Hz) ] 
-    # acc_bias_random_walk: 2.0e-2     # [ m / s^3 / sqrt(Hz) ]
-    # gyro_noise_density: 1.5e-2       # [ rad / s / sqrt(Hz) ]
-    # gyro_bias_random_walk: 1.50e-3    # [ rad / s^2 / sqrt(Hz) ]
+    acc_noise_density: 8.5e-1       # [ m / s^2 / sqrt(Hz) ] 
+    acc_bias_random_walk: 4.0e-1     # [ m / s^3 / sqrt(Hz) ]
+    gyro_noise_density: 7.5e-5       # [ rad / s / sqrt(Hz) ]
+    gyro_bias_random_walk: 2.50e-5    # [ rad / s^2 / sqrt(Hz) ]
 
-    acc_noise_density: 3.5e-3       # [ m / s^2 / sqrt(Hz) ] 
-    acc_bias_random_walk: 5.0e-2     # [ m / s^3 / sqrt(Hz) ]
-    gyro_noise_density: 7.5e-4       # [ rad / s / sqrt(Hz) ]
-    gyro_bias_random_walk: 3.50e-4    # [ rad / s^2 / sqrt(Hz) ]
+
+    # acc_noise_density: 3.5e-3       # [ m / s^2 / sqrt(Hz) ] 
+    # acc_bias_random_walk: 5.0e-2     # [ m / s^3 / sqrt(Hz) ]
+    # gyro_noise_density: 7.5e-4       # [ rad / s / sqrt(Hz) ]
+    # gyro_bias_random_walk: 3.50e-4    # [ rad / s^2 / sqrt(Hz) ]
 
     # acc_noise_density: 6.5e-4       # [ m / s^2 / sqrt(Hz) ] 
     # acc_bias_random_walk: 5.9e-2     # [ m / s^3 / sqrt(Hz) ]
@@ -203,7 +204,7 @@ dvl:
     use_to_init: true
     ts_offset: 0       # Nortek IMU and DVL share system_timestamp; no skew to compensate
     dvl_type: 1        # 0 = Waterlinked A50, 1 = Nortek Nucleus
-    fom_scale: 1.0
+    fom_scale: 0.10
     max_fom: 0.2
     max_velocity: 3.0
 

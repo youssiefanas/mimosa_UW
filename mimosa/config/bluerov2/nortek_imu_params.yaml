@@ -6,25 +6,26 @@ body_frame: mimosa_body
 imu:
   manager:
     log_level: info
-    ts_offset: 0.06
+    ts_offset: 0.04
     max_buffer_duration: 150
     pose_init_wait_secs: 2
-    interpolation_max_ts_diff: 0.51
-    extrapolation_max_ts_diff: 0.15
+    interpolation_max_ts_diff: 0.4
+    extrapolation_max_ts_diff: 0.40
     acc_scale_factor: 1
   preintegration:
     # Tune for the actual BlueROV2 IMU (Pixhawk ICM-20602 / ICM-42688 class MEMS).
     # These are reasonable starting values — re-estimate via Allan variance on a
     # stationary log if you can.
-    # acc_noise_density: 1.5e-2       # [ m / s^2 / sqrt(Hz) ] 
-    # acc_bias_random_walk: 2.0e-3     # [ m / s^3 / sqrt(Hz) ]
-    # gyro_noise_density: 1.5e-3       # [ rad / s / sqrt(Hz) ]
-    # gyro_bias_random_walk: 3.0e-5    # [ rad / s^2 / sqrt(Hz) ]
-    
-    acc_noise_density: 3.5e-1       # [ m / s^2 / sqrt(Hz) ] 
-    acc_bias_random_walk: 2.0e-2     # [ m / s^3 / sqrt(Hz) ]
-    gyro_noise_density: 1.5e-2       # [ rad / s / sqrt(Hz) ]
-    gyro_bias_random_walk: 1.50e-3    # [ rad / s^2 / sqrt(Hz) ]
+
+    acc_noise_density: 8.5e-1       # [ m / s^2 / sqrt(Hz) ] 
+    acc_bias_random_walk: 1.0e-2    # [ m / s^3 / sqrt(Hz) ]
+    gyro_noise_density: 5.0e-4       # [ rad / s / sqrt(Hz) ]
+    gyro_bias_random_walk: 1.0e-3    # [ rad / s^2 / sqrt(Hz) ]
+
+    # acc_noise_density: 6.5e-4       # [ m / s^2 / sqrt(Hz) ] 
+    # acc_bias_random_walk: 5.9e-2     # [ m / s^3 / sqrt(Hz) ]
+    # gyro_noise_density: 8.7e-5       # [ rad / s / sqrt(Hz) ]
+    # gyro_bias_random_walk: 3.0e-5 
 
     integration_sigma: 1.0e-4
     use_2nd_order_coriolis: false
@@ -35,15 +36,15 @@ imu:
 graph:
   manager:
     log_level: info
-    max_measurement_latency: 0.9
+    max_measurement_latency: 0.5
     smoother:
-      lag: 2.0
+      lag: 2.50
       wildfire_threshold: 0.001
       relinearize_threshold_translation: 5.0e-3
       relinearize_threshold_rotation: 1.75e-2
       relinearize_threshold_velocity: 5.0e-2
-      relinearize_threshold_bias_acc: 1.0e-1
-      relinearize_threshold_bias_gyro: 1.0e-1
+      relinearize_threshold_bias_acc: 1.0e-2
+      relinearize_threshold_bias_gyro: 1.0e-2
       relinearize_threshold_gravity: 1.0e-2
       relinearize_skip: 1
       enable_relinearization: true
@@ -53,11 +54,11 @@ graph:
       enable_detailed_results: false
       enable_partial_relinearization_check: true
       initial_position_sigma: 0.1
-      initial_rotation_yaw_sigma_deg: 5.0
+      initial_rotation_yaw_sigma_deg: 1.0
       initial_rotation_pitch_roll_sigma_deg: 1.0
-      initial_velocity_sigma: 0.1
+      initial_velocity_sigma: 0.05
       initial_bias_acc_sigma: 1.0e-1
-      initial_bias_gyro_sigma: 1.0e-5
+      initial_bias_gyro_sigma: 10.0e-5
       initial_gravity_sigma: 5.0e-2
       additional_update_iterations: 5
 
@@ -180,27 +181,28 @@ odometry:
     enabled: true
     use_to_init: false
     initial_skip: 0
-    ts_offset: 0.0
+    ts_offset: -0.0
+    # ts_offset: -8.34
     d_opt_thresh: 1
-    sigma_rot_deg: 0.5
-    sigma_trans_m: 0.5
+    sigma_rot_deg: 0.1
+    sigma_trans_m: 0.1
 
 # Nortek Nucleus DVL (BottomTrack on /nucleus_node/bottom_track_packets).
 dvl:
   sensor_frame: mimosa_dvl
   # DVL mount in body frame: [x, y, z, qx, qy, qz, qw].
   # Update to the real mount offset/orientation on the ROV.
-  T_B_S: [-0.1, -0.1, 0.3, 1.0, 0.0, 0.0, 0.0]
+  T_B_S: [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
   manager:
     log_level: info
     initial_skip: 0
     enabled: true
     use_to_init: true
-    ts_offset: 0       # Nortek IMU and DVL share system_timestamp; no skew to compensate
+    ts_offset: -0.0       # Nortek IMU and DVL share system_timestamp; no skew to compensate
     dvl_type: 1        # 0 = Waterlinked A50, 1 = Nortek Nucleus
     fom_scale: 0.10
-    max_fom: 0.10
-    max_velocity: 2.0
+    max_fom: 0.2
+    max_velocity: 10.0
 
 # Pressure-derived depth prior. Source selectable via depth_source:
 #   0 = sensor_msgs/FluidPressure on its own topic (e.g. /bluerov2/pressure)
@@ -208,14 +210,14 @@ dvl:
 depth:
   sensor_frame: mimosa_depth
   # Pressure cell mount in body frame. Nortek DVL is 30 cm below body origin.
-  T_B_S: [0.0, 0.0, 0.3, 0.0, 0.0, 0.0, 1.0]
+  T_B_S: [0.0, 0.0, -0.0, 0.0, 0.0, 0.0, 1.0]
   manager:
     log_level: info
     enabled: true
     use_to_init: false
     initial_skip: 0
     ts_offset: 0
-    sigma_depth_m: 1e-4           # measurement noise sigma [m]
+    sigma_depth_m: 5e-2            # measurement noise sigma [m]
     fluid_density: 1025.0          # seawater; set 1000.0 for freshwater pool tests
     surface_pressure: 0.0          # Nortek publishes gauge pressure (atm already removed); set 101325.0 for absolute (Bar30)
     gravity_magnitude: 9.80665     # [m/s^2]

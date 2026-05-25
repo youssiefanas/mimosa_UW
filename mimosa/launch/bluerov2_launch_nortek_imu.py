@@ -45,7 +45,7 @@ def generate_launch_description():
         description='Launch RViz2 with mimosa visualisation')
 
     vo_arg = DeclareLaunchArgument(
-        'vo', default_value='false',
+        'vo', default_value='true',
         description='Enable DVP_Underwater_SK visual odometry from the down camera')
 
     # ── 1. (optional) image_transport republish: CompressedImage → raw Image ─
@@ -69,10 +69,10 @@ def generate_launch_description():
         package='dv_slam',
         executable='vo_node',
         name='visual_odom_node',
-        output='screen',
+        # output='screen',
         parameters=[
             os.path.join(get_package_share_directory('dv_slam'), 'config', 'dv_slam.yaml'),
-            os.path.join(get_package_share_directory('dv_slam'), 'config', 'datasets', 'bluerov2.yaml'),
+            os.path.join(get_package_share_directory('dv_slam'), 'config', 'datasets', 'bluerov.yaml'),
         ],
         condition=IfCondition(LaunchConfiguration('vo')),
     )
@@ -90,7 +90,7 @@ def generate_launch_description():
     )
 
     # ── 4. mimosa state estimator ────────────────────────────────────────────
-    mimosa_params = os.path.join(mimosa_pkg, 'config', 'bluerov2', 'params.yaml')
+    mimosa_params = os.path.join(mimosa_pkg, 'config', 'bluerov2', 'nortek_imu_params.yaml')
     qos_overrides = os.path.join(mimosa_pkg, 'config', 'bluerov2', 'qos_overrides.yaml')
 
     mimosa_node = Node(
@@ -109,7 +109,7 @@ def generate_launch_description():
             ('~/imu/manager/imu_in',           '/nortek/imu'),
             ('~/dvl/manager/dvl_in',           '/nucleus_node/bottom_track_packets'),
             ('~/depth/manager/depth_in',       '/nucleus_node/bottom_track_packets'),
-            ('~/odometry/manager/odometry_in', '/visual_odom_node/odometry'),
+            ('~/odometry/manager/odometry_in', '/visual_odom/odometry_in'),
         ],
     )
 
@@ -124,9 +124,9 @@ def generate_launch_description():
 
     return LaunchDescription([
         viz_arg,
-        # vo_arg,
+        vo_arg,
         # image_republisher,
-        # vo_node,
+        vo_node,
         nortek_imu_bridge,
         mimosa_node,
         rviz_node,

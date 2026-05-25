@@ -1,0 +1,3 @@
+odometry:
+  manager:
+    sigma_rot_deg: 0.5

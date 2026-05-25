@@ -161,6 +161,10 @@ int main(int argc, char ** argv)
     node->declare_parameter<std::string>("nortek_raw_imu_topic", "");
   std::string nortek_imu_frame_id =
     node->declare_parameter<std::string>("nortek_imu_frame_id", "nortek_imu_link");
+  // Nortek Nucleus IMU is z-down (NED); mimosa expects z-up. Mirrors
+  // nortek_imu_bridge's `rotate_to_zup` (default true).
+  bool nortek_rotate_to_zup =
+    node->declare_parameter<bool>("nortek_rotate_to_zup", true);
 #endif
   std::cout << "s_offset: " << s_offset << std::endl;
 
@@ -429,12 +433,15 @@ int main(int argc, char ** argv)
         auto msg = std::make_shared<mimosa::ri::SensorMsgsImu>();
         msg->header.stamp = raw.system_timestamp;
         msg->header.frame_id = nortek_imu_frame_id;
+        // 180°-about-x flip (y,z negated) to match nortek_imu_bridge: Nortek
+        // is NED/FRD, mimosa's IMU manager expects z-up.
+        const double s = nortek_rotate_to_zup ? -1.0 : 1.0;
         msg->linear_acceleration.x = raw.accelerometer_x;
-        msg->linear_acceleration.y = raw.accelerometer_y;
-        msg->linear_acceleration.z = raw.accelerometer_z;
+        msg->linear_acceleration.y = s * raw.accelerometer_y;
+        msg->linear_acceleration.z = s * raw.accelerometer_z;
         msg->angular_velocity.x = raw.gyro_x;
-        msg->angular_velocity.y = raw.gyro_y;
-        msg->angular_velocity.z = raw.gyro_z;
+        msg->angular_velocity.y = s * raw.gyro_y;
+        msg->angular_velocity.z = s * raw.gyro_z;
         msg->orientation_covariance[0] = -1.0;  // orientation unknown (REP-145)
         process_imu(msg);
       } else if (bag_msg->topic_name == dvl_topic) {

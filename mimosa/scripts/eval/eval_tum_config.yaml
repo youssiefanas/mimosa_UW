@@ -1,0 +1,51 @@
+# Configuration for TUM Trajectory Evaluation.
+#
+# folder_path / output_path can be overridden on the command line:
+#   evaluate_tum_trajectories.py --config eval_tum_config.yaml \
+#       --folder /path/to/bag --output /path/to/bag/eval
+#
+# The batch wrapper (`batch_eval.sh`) sets these overrides per bag, so
+# the values below are just defaults for ad-hoc single-bag runs.
+
+# folder_path: "/mnt/56F01D0DF01CF4C9/Thesis_MSc_data/19_05/run_20260519_164139"
+# output_path: "/mnt/56F01D0DF01CF4C9/Thesis_MSc_data/19_05/run_20260519_164139/eval"
+
+folder_path: "/home/anas/jazzy_ws/src/mimosa/mimosa/data/param_change_evaluation_results/run_20260519_144629_0/group_g_expert_tuning/trajectories"
+output_path: "/home/anas/jazzy_ws/src/mimosa/mimosa/data/param_change_evaluation_results/run_20260519_144629_0/group_g_expert_tuning/eval"
+gt: "gt.tum"
+
+# Names + colors stay consistent across bags so plots are comparable.
+# estimators:
+#   - name: "MIMOSA"
+#     filename: "mimosa.tum"
+#     color: "tab:blue"
+#   - name: "EKF"
+#     filename: "mavros.tum"
+#     color: "tab:green"
+
+# G1_vo_rot_05.tum            G5_vo_rot_10_acc_65e-4_gyro_rw.tum
+# G2_vo_rot_10.tum            G6_vo_rot_10_acc_65e-4_gyro_rw_trans_015.tum
+# G3_vo_rot_10_acc_35e-3.tum  G7_all_fixes.tum
+# G4_vo_rot_10_acc_65e-4.tum
+estimators:
+  - name: "G1_vo_rot_05.tum"
+    filename: "G1_vo_rot_05.tum"
+    color: "tab:blue"
+  - name: "G2_vo_rot_10.tum"
+    filename: "G2_vo_rot_10.tum"
+    color: "tab:green"
+  # - name: "G3_vo_rot_10_acc_35e-3.tum"
+  #   filename: "G3_vo_rot_10_acc_35e-3.tum"
+  #   color: "tab:red"
+  # - name: "G4_vo_rot_10_acc_65e-4.tum"
+  #   filename: "G4_vo_rot_10_acc_65e-4.tum"
+  #   color: "tab:purple"
+  # - name: "G5_vo_rot_10_acc_65e-4_gyro_rw.tum"
+  #   filename: "G5_vo_rot_10_acc_65e-4_gyro_rw.tum"
+  #   color: "tab:orange"
+  # - name: "G6_vo_rot_10_acc_65e-4_gyro_rw_trans_015.tum"
+  #   filename: "G6_vo_rot_10_acc_65e-4_gyro_rw_trans_015.tum"
+  #   color: "tab:brown"
+  # - name: "G7_all_fixes.tum"
+  #   filename: "G7_all_fixes.tum"
+  #   color: "tab:pink"

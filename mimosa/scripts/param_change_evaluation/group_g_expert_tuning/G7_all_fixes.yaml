@@ -1,0 +1,11 @@
+odometry:
+  manager:
+    sigma_rot_deg: 1.0
+    sigma_trans_m: 0.15
+imu:
+  preintegration:
+    acc_noise_density: 6.5e-4
+    gyro_bias_random_walk: 3.0e-5
+dvl:
+  manager:
+    fom_scale: 0.15

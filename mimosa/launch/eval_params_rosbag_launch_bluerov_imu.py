@@ -46,7 +46,7 @@ def _resolve_config_path(context, base_path):
 
 def launch_setup(context, *args, **kwargs):
     pkg_share = get_package_share_directory('mimosa')
-    base_config = os.path.join(pkg_share, 'config', 'bluerov2', 'bluerov_imu_params.yaml')
+    base_config = os.path.join(pkg_share, 'config', 'bluerov2', 'nortek_imu_params.yaml')
     config_path = _resolve_config_path(context, base_config)
     bag_output = LaunchConfiguration('bag_output').perform(context)
 
@@ -59,12 +59,14 @@ def launch_setup(context, *args, **kwargs):
             'config_path': config_path,
             'bag_name': LaunchConfiguration('bag_name'),
             's': LaunchConfiguration('s'),
+            # 'nortek_raw_imu_topic': '/nucleus_node/imu_packets',
+
         }],
         remappings=[
-            ('~/imu/manager/imu_in',           '/bluerov2/imu/data'),
+            ('~/imu/manager/imu_in',           '/nortek/imu'),
             ('~/dvl/manager/dvl_in',           '/nucleus_node/bottom_track_packets'),
             ('~/depth/manager/depth_in',       '/nucleus_node/bottom_track_packets'),
-            ('~/odometry/manager/odometry_in', '/visual_odom_node/odometry'),
+            ('~/odometry/manager/odometry_in', '/visual_odom/odometry_in'),
         ],
         on_exit=Shutdown(),
     )

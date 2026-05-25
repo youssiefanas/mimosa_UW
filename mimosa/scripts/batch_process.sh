@@ -45,7 +45,7 @@ fi
 
 # Resolve mimosa's logs_directory by reading the bluerov2 params file.
 MIMOSA_PARAMS_DIR="$(ros2 pkg prefix mimosa)/share/mimosa/config/bluerov2"
-PARAMS_YAML="${MIMOSA_PARAMS_DIR}/params.yaml"
+PARAMS_YAML="${MIMOSA_PARAMS_DIR}/nortek_imu_params.yaml"
 if [ ! -f "$PARAMS_YAML" ]; then
     echo "Error: mimosa params not found at $PARAMS_YAML"
     echo "       Did you source the workspace?  source install/setup.bash"
@@ -85,11 +85,9 @@ for folder in "$BASE_DIR"/*/; do
     if ros2 launch mimosa "$LAUNCH_FILE" bag_name:="$bag_path"; then
         if [ -f "$TUM_FILE" ]; then
             if [ -n "$OUTPUT_DIR" ]; then
-                dest="${OUTPUT_DIR%/}/${folder_name}.tum"
-                if [ -e "$dest" ]; then
-                    ts="$(date +%Y%m%d_%H%M%S)"
-                    dest="${OUTPUT_DIR%/}/${folder_name}_${ts}.tum"
-                fi
+                bag_out_dir="${OUTPUT_DIR%/}/${folder_name}"
+                mkdir -p "$bag_out_dir"
+                dest="${bag_out_dir}/mimosa.tum"
             else
                 dest="${bag_path%/}/../estimate.tum"
             fi

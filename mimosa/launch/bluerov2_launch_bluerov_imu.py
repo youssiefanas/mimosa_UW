@@ -72,7 +72,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             os.path.join(get_package_share_directory('dv_slam'), 'config', 'dv_slam.yaml'),
-            os.path.join(get_package_share_directory('dv_slam'), 'config', 'datasets', 'bluerov2.yaml'),
+            os.path.join(get_package_share_directory('dv_slam'), 'config', 'datasets', 'bluerov.yaml'),
         ],
         condition=IfCondition(LaunchConfiguration('vo')),
     )
@@ -98,7 +98,7 @@ def generate_launch_description():
             ('~/imu/manager/imu_in',           '/bluerov2/imu/data'),
             ('~/dvl/manager/dvl_in',           '/nucleus_node/bottom_track_packets'),
             ('~/depth/manager/depth_in',       '/nucleus_node/bottom_track_packets'),
-            ('~/odometry/manager/odometry_in', '/visual_odom_node/odometry'),
+            ('~/odometry/manager/odometry_in', '/visual_odom/odometry_in'),
         ],
     )
 
@@ -113,9 +113,9 @@ def generate_launch_description():
 
     return LaunchDescription([
         viz_arg,
-        # vo_arg,
+        vo_arg,
         # image_republisher,
-        # vo_node,
+        vo_node,
         mimosa_node,
         rviz_node,
     ])

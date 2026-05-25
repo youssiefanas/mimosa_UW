@@ -1,0 +1,6 @@
+odometry:
+  manager:
+    sigma_rot_deg: 1.0
+imu:
+  preintegration:
+    acc_noise_density: 3.5e-3

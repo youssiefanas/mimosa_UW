@@ -6,13 +6,33 @@
 
 This package implements a tightly-coupled multi-modal fusion framework. It currently supports fusing LiDAR (Geometric, Photometric), Radar, any Odometry, DVL, pressure/depth, and IMU to provide robust state estimation in challenging environments. The framework is designed to be modular and easily extensible to add new sensors.
 
-## Working Description
+## Table of Contents
 
-mimosa maintains a sliding window factor graph to fuse factors generated from multiple sensors. On arrival of a new measurement (a pointcloud from the LiDAR or Radar or an odometry message from an external odometry source like VIO), a new state is "declared" in the graph and connected with a preintegrated IMU factor. Then the measurement gets processed by the corresponding sensor manager to generate a new factor(s). This factor(s) is(are) then added to the graph and the graph is optimized. The optimized state is then published on `mimosa_node/graph/odometry` topic as a `nav_msgs/Odometry` message.
+- [How it works (in one paragraph)](#how-it-works-in-one-paragraph)
+- [Sensor factors](#sensor-factors)
+  - [IMU](#imu)
+  - [LiDAR](#lidar)
+  - [Radar](#radar)
+  - [External odometry](#external-odometry)
+  - [DVL](#dvl)
+  - [Depth (pressure)](#depth-pressure)
+- [Setup](#setup)
+- [Usage — general datasets](#usage--general-datasets)
+- [Usage — underwater (BlueROV2)](#usage--underwater-bluerov2)
+- [License](#license)
+- [Citing](#citing)
+- [Questions](#questions)
 
-### IMU Factor
+## How it works
+
+When a new measurement arrives (a LiDAR/radar scan, a VIO pose, a DVL or pressure reading), mimosa declares a new state in the graph, links it to the previous state with a preintegrated IMU factor, hands the measurement to the corresponding sensor manager to build the appropriate factor(s), optimises the sliding-window graph, and publishes the optimised state on `mimosa_node/graph/odometry` (`nav_msgs/Odometry`). All sensors share the same graph — there is no per-sensor filter being fused after the fact.
+
+## Sensor factors
+
+### IMU
 
 The IMU factor is based on GTSAM's provided `PreintegratedIMUFactor` but modified to also have gravity as a state in the preintegration. This is due to the fact that we consider the initial orientation of the IMU to be the map frame (whereas GTSAM assumes the map frame to be gravity aligned).
+
 
 ### LiDAR Factor
 
@@ -29,40 +49,22 @@ The radar factor provides a single factor per pointcloud that utilizes the radia
 
 Consecutive odometry measurements (e.g., from a VIO system) are used to create relative pose factors (Between factors) between the corresponding states in the graph.
 
-### DVL Factor
+### DVL
 
-The DVL factor constrains the body-frame linear velocity using a bottom-track measurement from a Doppler Velocity Log. It is a 3-key factor tying `X(k)` (pose), `V(k)` (world-frame velocity) and `B(k)` (IMU bias, for gyroscope compensation of the lever arm), and models the sensor-frame measurement with full lever-arm compensation:
+The DVL factor uses bottom-track velocity from a Doppler Velocity Log to constrain the vehicle's linear velocity. 
+Per-axis measurement noise is scaled from the DVL's reported figure-of-merit, and outlier readings are gated out.
 
-```
-v_S = R_S_B * ( R_B_W * v_W + (omega_B - b_g) x t_B_S )
-```
+See [Usage — underwater (BlueROV2)](#usage--underwater-bluerov2) for driver selection (Waterlinked vs Nortek) and the relevant config knobs.
 
-where `t_B_S` is the lever arm from the body origin to the DVL transducer expressed in the body frame, `omega_B` is the body-frame angular velocity sampled from the IMU buffer around the DVL timestamp, and `b_g` is the estimated gyroscope bias. The factor analytically provides the Jacobians w.r.t. all three keys. Per-axis noise sigmas are derived from the DVL's reported figure-of-merit (`fom_scale * fom`), and measurements with FOM above `max_fom` or speed above `max_velocity` are rejected.
+### Depth (pressure)
 
-Two DVL drivers are supported via `dvl.manager.dvl_type` in the config: `0 = Waterlinked A50` (shared-FOM) and `1 = Nortek BottomTrack` (per-axis FOM, uses the message's `system_timestamp` as the stamp since it has no `std_msgs/Header`).
-
-If `dvl.manager.use_to_init` is `true`, the manager also provides a body-frame velocity hint when declaring the first measurement. The graph manager rotates this hint to world via the IMU-estimated attitude and warm-starts `V(0)` so the solver does not have to pull the state away from a zero initial guess against a tight velocity prior. Widening `graph.manager.smoother.initial_velocity_sigma` lets the DVL measurement dominate the initial velocity estimate.
-
-### Depth Factor
-
-The depth factor is a unary prior on `X(k)` that constrains the world-frame z-component of the sensor position using a `sensor_msgs/FluidPressure` reading. It follows the measurement model:
+The depth factor constrains **only the world-frame z** of the vehicle pose from a pressure reading — roll, pitch, yaw, and xy are unaffected. Raw pressure is converted to a signed z via the hydrostatic equation:
 
 ```
-residual = (T_W_B * t_B_S).z() - measured_z
+z = -(pressure - surface_pressure - pressure_offset_pa) / (fluid_density * g)
 ```
 
-where `t_B_S` is the lever arm of the pressure sensor in the body frame (taken from `depth.T_B_S`), and the Jacobian w.r.t. the pose tangent space is the z-row of the 3x6 Jacobian returned by `Pose3::transformFrom`. Only the z-component of `T_W_B` is observed — roll, pitch, yaw and the xy-position are unaffected by this factor.
-
-The manager converts raw pressure to a signed z via the hydrostatic equation:
-
-```
-depth_below_surface = (fluid_pressure - surface_pressure - pressure_offset_pa) / (fluid_density * g)
-measured_z          = -depth_below_surface        # world z is up
-```
-
-`pressure_offset_pa` is a sensor-specific bias measured once on deck: record the raw pressure reading in air, subtract `surface_pressure`, paste the result into the YAML. Leave it at `0.0` if your sensor is already calibrated against `surface_pressure` (the typical case for absolute sensors with a known datasheet offset, or gauge sensors with `surface_pressure: 0.0`). Because the offset is static, the depth factor reports the *true* signed z from the first message, even when the vehicle starts already submerged — `getInitZHint()` propagates this to the graph manager so `X(0).z()` initializes to the actual depth.
-
-The relevant config fields are `sigma_depth_m`, `fluid_density` (use `1025.0` for seawater, `1000.0` for freshwater), `surface_pressure` (Pa), `gravity_magnitude`, and `pressure_offset_pa`. `depth.manager.use_to_init` should be left `false`: depth alone cannot initialize a 6-DOF pose, so it should only refine an init produced by another sensor.
+See [Usage — underwater (BlueROV2)](#usage--underwater-bluerov2) for pressure-source selection (dedicated `FluidPressure` topic vs Nortek Nucleus packet) and the calibration recipe for `pressure_offset_pa`.
 
 ## Setup
 
@@ -229,6 +231,85 @@ To run on your own data, you need to set up the following:
 4. Launch your launch file
 
 For ROS2, only the `parrot` configuration currently has launch files (`parrot_launch.py`, `parrot_rosbag_launch.py`). These can be used as templates to create launch files for other configurations.
+## Usage — underwater (BlueROV2)
+
+mimosa runs unmodified underwater by adding the **DVL** and **depth** factors described above. The BlueROV2 configs in `config/bluerov2/` are the canonical examples and come in two flavours depending on the IMU you use.
+
+### Sensor stack
+
+| Role           | Hardware                                                    | ROS message                                        |
+| -------------- | ----------------------------------------------------------- | -------------------------------------------------- |
+| IMU + pressure | Pixhawk autopilot (BlueROV IMU) *or* Nortek Nucleus internal IMU | `sensor_msgs/Imu`, `sensor_msgs/FluidPressure`     |
+| DVL bottom-track | **Waterlinked A50** *or* **Nortek Nucleus 1000**          | `waterlinked_a50_ros_driver/DVL` or `interfaces/BottomTrack` |
+| Depth (pressure) | Bar30 on Pixhawk *or* pressure field of the Nucleus packet | `sensor_msgs/FluidPressure` or `interfaces/BottomTrack` |
+
+mimosa selects between the two DVL message types via `dvl.manager.dvl_type` (`0 = Waterlinked`, `1 = Nortek`), and between the two depth sources via `depth.depth_source` (`0 = FluidPressure topic`, `1 = Nortek BottomTrack`).
+
+### Dependencies
+
+In addition to the [Common setup](#common-setup) above, clone the DVL driver(s) you actually use into your workspace `src/`:
+
+#### Waterlinked A50
+
+mimosa is compiled against a ROS 2 port of the Waterlinked A50 driver that publishes a custom `waterlinked_a50_ros_driver/DVL` message. Use this fork:
+
+```bash
+cd your_ws/src
+git clone https://github.com/youssiefanas/dvl_a50_ros_driver_ros2.git
+```
+
+> The upstream Waterlinked driver at https://github.com/waterlinked/waterlinked_dvl publishes `marine_acoustic_msgs/Dvl` and is **not** a drop-in replacement — mimosa's [ros_interface.hpp](mimosa/include/mimosa/ros_interface.hpp) is hard-coded to the custom message type.
+
+#### Nortek Nucleus (DVL + IMU + pressure)
+
+The Nortek Nucleus ships its own ROS 2 driver, which provides the `interfaces` package mimosa builds against, plus the `nucleus_node` that publishes the bottom-track and IMU streams.
+
+```bash
+cd your_ws/src
+git clone https://github.com/NortekSupport/nucleus_driver.git
+# (the ROS2 packages live under nucleus_driver/ros2/)
+```
+
+> **Recommended tweak.** The upstream `nucleus_node.py` advertises all 9 packet topics with the default `RELIABLE` QoS (depth 100). At the Nucleus' native ~100 Hz this fills the queue under any subscriber stall and back-pressures the publisher. For mimosa we override every publisher to `BEST_EFFORT` (depth 2, `KEEP_LAST`) so the latest sample always wins:
+
+mimosa also ships a tiny `nortek_imu_bridge` executable (built automatically on ROS 2) that re-publishes the Nucleus' `interfaces/msg/IMU` as a standard `sensor_msgs/msg/Imu` so the rest of the pipeline is sensor-agnostic.
+
+> If you only use the Waterlinked DVL with a Pixhawk IMU you do **not** need the Nucleus driver, but the `interfaces` dependency is currently mandatory because mimosa is compiled against its message definitions. Cloning `nucleus_driver` alongside is the simplest fix.
+
+### Launch files
+
+Two ready-to-run ROS 2 launch files live in `mimosa/launch/`, plus matching rosbag-replay variants:
+
+| Launch file                              | IMU source              | DVL    | Use for                          |
+| ---------------------------------------- | ----------------------- | ------ | -------------------------------- |
+| `bluerov2_launch_bluerov_imu.py`         | Pixhawk (BlueROV IMU)   | Either | Live BlueROV2 with autopilot IMU |
+| `bluerov2_launch_nortek_imu.py`          | Nortek Nucleus IMU      | Nortek | Live BlueROV2 with Nucleus       |
+| `bluerov_imu_rosbag_launch.py`           | Pixhawk (from bag)      | Either | Replay BlueROV-IMU recordings    |
+| `bluerov2_rosbag_launch.py`              | from bag                | from bag | Generic BlueROV2 bag replay     |
+
+Matching YAML configs:
+
+- `config/bluerov2/bluerov_imu_params.yaml` — Pixhawk IMU + Bar30 depth.
+- `config/bluerov2/nortek_imu_params.yaml`  — Nucleus IMU + Nucleus pressure (`depth_source: 1`).
+- `config/bluerov2/params.yaml`             — generic / starting-point config.
+
+### Quick start (Nortek Nucleus stack)
+
+```bash
+# Live
+ros2 launch mimosa bluerov2_launch_nortek_imu.py
+
+# Replay a recorded bag
+ros2 launch mimosa bluerov_imu_rosbag_launch.py bag_name:=/path/to/bag
+```
+
+### Tuning checklist for a new BlueROV2
+
+1. **Extrinsics.** Set `T_B_S` for the DVL, the IMU and the pressure sensor in the active YAML — these are pose-of-sensor-in-body and must reflect your actual mount.
+2. **Water column.** `depth.manager.fluid_density: 1025.0` for seawater, `1000.0` for freshwater.
+3. **Pressure offset.** With the vehicle dry on deck, record the raw pressure reading. Subtract `surface_pressure` from it and paste the result into `depth.manager.pressure_offset_pa`. Leave at `0.0` if your sensor is already calibrated.
+4. **DVL gating.** `dvl.manager.max_fom` rejects noisy bottom-track readings (e.g. when leaving the bottom). `max_velocity` rejects spurious large speeds.
+
 
 ## License
 
