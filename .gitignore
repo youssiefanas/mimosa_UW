@@ -57,5 +57,5 @@ test/full_graph.dot
 # vscode settings
 .vscode/
 
- mimosa/scripts/param_change_evaluation/
- mimosa/scripts/param_change_evaluation/*
+mimosa/scripts/param_change_evaluation/
+mimosa/scripts/param_change_evaluation/*
